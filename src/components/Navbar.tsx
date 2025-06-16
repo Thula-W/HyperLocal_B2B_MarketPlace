@@ -9,6 +9,14 @@ const Navbar: React.FC = () => {
 
   const isActive = (path: string) => location.pathname === path;
 
+  const handleLogout = async () => {
+    try {
+      await logout();
+    } catch (error) {
+      console.error('Logout error:', error);
+    }
+  };
+
   return (
     <nav className="bg-white shadow-sm border-b border-gray-200">
       <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
@@ -54,9 +62,8 @@ const Navbar: React.FC = () => {
                 >
                   <User className="h-5 w-5" />
                   <span className="hidden md:block">{user?.name}</span>
-                </Link>
-                <button
-                  onClick={logout}
+                </Link>                <button
+                  onClick={handleLogout}
                   className="flex items-center space-x-2 text-gray-700 hover:text-red-600 transition-colors"
                 >
                   <LogOut className="h-5 w-5" />

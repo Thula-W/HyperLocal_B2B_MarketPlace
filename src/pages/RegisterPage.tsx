@@ -1,37 +1,60 @@
 import React, { useState } from 'react';
-import { useNavigate, Link, useLocation } from 'react-router-dom';
-import { Building2, Mail, Lock, AlertCircle } from 'lucide-react';
+import { useNavigate, Link } from 'react-router-dom';
+import { Building2, Mail, Lock, User, Building, AlertCircle } from 'lucide-react';
 import { useAuth } from '../contexts/AuthContext';
 
-const SignInPage: React.FC = () => {
-  const [email, setEmail] = useState('');
-  const [password, setPassword] = useState('');
-  const [error, setError] = useState('');
+const RegisterPage: React.FC = () => {
+  const [formData, setFormData] = useState({
+    email: '',
+    password: '',
+    confirmPassword: '',
+    name: '',
+    company: ''
+  });  const [error, setError] = useState('');
   const [loading, setLoading] = useState(false);
   const [googleLoading, setGoogleLoading] = useState(false);
-  const { login, loginWithGoogle } = useAuth();
+  const { register, loginWithGoogle } = useAuth();
   const navigate = useNavigate();
-  const location = useLocation();
 
-  const from = location.state?.from?.pathname || '/profile';
+  const handleInputChange = (e: React.ChangeEvent<HTMLInputElement>) => {
+    const { name, value } = e.target;
+    setFormData(prev => ({
+      ...prev,
+      [name]: value
+    }));
+  };
+
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     setError('');
+
+    // Validation
+    if (formData.password !== formData.confirmPassword) {
+      setError('Passwords do not match');
+      return;
+    }
+
+    if (formData.password.length < 6) {
+      setError('Password must be at least 6 characters long');
+      return;
+    }
+
     setLoading(true);
+
     try {
-      await login(email, password);
-      navigate(from, { replace: true });
+      await register(formData.email, formData.password, formData.name, formData.company);
+      navigate('/profile');
     } catch (err) {
-      console.error('Login error:', err);
+      console.error('Registration error:', err);
       const errorCode = (err as { code?: string })?.code;
-      if (errorCode === 'auth/user-not-found' || errorCode === 'auth/wrong-password') {
-        setError('Invalid email or password');
+      if (errorCode === 'auth/email-already-in-use') {
+        setError('This email is already registered. Please sign in instead.');
       } else if (errorCode === 'auth/invalid-email') {
         setError('Invalid email address');
-      } else if (errorCode === 'auth/too-many-requests') {
-        setError('Too many failed attempts. Please try again later.');
+      } else if (errorCode === 'auth/weak-password') {
+        setError('Password is too weak. Please choose a stronger password.');
       } else {
-        setError('An error occurred. Please try again.');
+        setError('An error occurred during registration. Please try again.');
       }
     } finally {
       setLoading(false);
@@ -44,16 +67,16 @@ const SignInPage: React.FC = () => {
 
     try {
       await loginWithGoogle();
-      navigate(from, { replace: true });
+      navigate('/profile');
     } catch (err) {
-      console.error('Google sign-in error:', err);
+      console.error('Google sign-up error:', err);
       const errorCode = (err as { code?: string })?.code;
       if (errorCode === 'auth/popup-closed-by-user') {
-        setError('Sign-in was cancelled. Please try again.');
+        setError('Sign-up was cancelled. Please try again.');
       } else if (errorCode === 'auth/popup-blocked') {
         setError('Popup was blocked. Please allow popups and try again.');
       } else {
-        setError('Failed to sign in with Google. Please try again.');
+        setError('Failed to sign up with Google. Please try again.');
       }
     } finally {
       setGoogleLoading(false);
@@ -67,10 +90,10 @@ const SignInPage: React.FC = () => {
           <Building2 className="h-12 w-12 text-primary-600" />
         </div>
         <h2 className="mt-6 text-center text-3xl font-bold text-gray-900">
-          Sign in to HyperLocal
+          Join HyperLocal
         </h2>
         <p className="mt-2 text-center text-sm text-gray-600">
-          Connect with local businesses in your area
+          Create your business account to get started
         </p>
       </div>
 
@@ -85,6 +108,44 @@ const SignInPage: React.FC = () => {
             )}
 
             <div>
+              <label htmlFor="name" className="block text-sm font-medium text-gray-700">
+                Full Name
+              </label>
+              <div className="mt-1 relative">
+                <input
+                  id="name"
+                  name="name"
+                  type="text"
+                  required
+                  value={formData.name}
+                  onChange={handleInputChange}
+                  className="input-field pl-10"
+                  placeholder="Enter your full name"
+                />
+                <User className="h-5 w-5 text-gray-400 absolute left-3 top-2.5" />
+              </div>
+            </div>
+
+            <div>
+              <label htmlFor="company" className="block text-sm font-medium text-gray-700">
+                Company Name
+              </label>
+              <div className="mt-1 relative">
+                <input
+                  id="company"
+                  name="company"
+                  type="text"
+                  required
+                  value={formData.company}
+                  onChange={handleInputChange}
+                  className="input-field pl-10"
+                  placeholder="Enter your company name"
+                />
+                <Building className="h-5 w-5 text-gray-400 absolute left-3 top-2.5" />
+              </div>
+            </div>
+
+            <div>
               <label htmlFor="email" className="block text-sm font-medium text-gray-700">
                 Email address
               </label>
@@ -95,8 +156,8 @@ const SignInPage: React.FC = () => {
                   type="email"
                   autoComplete="email"
                   required
-                  value={email}
-                  onChange={(e) => setEmail(e.target.value)}
+                  value={formData.email}
+                  onChange={handleInputChange}
                   className="input-field pl-10"
                   placeholder="Enter your email"
                 />
@@ -113,12 +174,32 @@ const SignInPage: React.FC = () => {
                   id="password"
                   name="password"
                   type="password"
-                  autoComplete="current-password"
+                  autoComplete="new-password"
                   required
-                  value={password}
-                  onChange={(e) => setPassword(e.target.value)}
+                  value={formData.password}
+                  onChange={handleInputChange}
                   className="input-field pl-10"
-                  placeholder="Enter your password"
+                  placeholder="Create a password"
+                />
+                <Lock className="h-5 w-5 text-gray-400 absolute left-3 top-2.5" />
+              </div>
+            </div>
+
+            <div>
+              <label htmlFor="confirmPassword" className="block text-sm font-medium text-gray-700">
+                Confirm Password
+              </label>
+              <div className="mt-1 relative">
+                <input
+                  id="confirmPassword"
+                  name="confirmPassword"
+                  type="password"
+                  autoComplete="new-password"
+                  required
+                  value={formData.confirmPassword}
+                  onChange={handleInputChange}
+                  className="input-field pl-10"
+                  placeholder="Confirm your password"
                 />
                 <Lock className="h-5 w-5 text-gray-400 absolute left-3 top-2.5" />
               </div>
@@ -130,17 +211,8 @@ const SignInPage: React.FC = () => {
                 disabled={loading}
                 className="w-full btn-primary py-3 text-base disabled:opacity-50 disabled:cursor-not-allowed"
               >
-                {loading ? 'Signing in...' : 'Sign in'}
+                {loading ? 'Creating account...' : 'Create account'}
               </button>
-            </div>
-
-            <div className="text-center">
-              <Link
-                to="/register"
-                className="text-sm text-primary-600 hover:text-primary-500"
-              >
-                Don't have an account? Sign up
-              </Link>
             </div>          </form>
 
           <div className="mt-6">
@@ -165,7 +237,7 @@ const SignInPage: React.FC = () => {
                   <path fill="#FBBC05" d="M5.84 14.09c-.22-.66-.35-1.36-.35-2.09s.13-1.43.35-2.09V7.07H2.18C1.43 8.55 1 10.22 1 12s.43 3.45 1.18 4.93l2.85-2.22.81-.62z"/>
                   <path fill="#EA4335" d="M12 5.38c1.62 0 3.06.56 4.21 1.64l3.15-3.15C17.45 2.09 14.97 1 12 1 7.7 1 3.99 3.47 2.18 7.07l3.66 2.84c.87-2.6 3.3-4.53 6.16-4.53z"/>
                 </svg>
-                {googleLoading ? 'Signing in with Google...' : 'Sign in with Google'}
+                {googleLoading ? 'Signing up with Google...' : 'Sign up with Google'}
               </button>
             </div>
           </div>
@@ -176,16 +248,16 @@ const SignInPage: React.FC = () => {
                 <div className="w-full border-t border-gray-300" />
               </div>
               <div className="relative flex justify-center text-sm">
-                <span className="px-2 bg-white text-gray-500">New to HyperLocal?</span>
+                <span className="px-2 bg-white text-gray-500">Already have an account?</span>
               </div>
             </div>
 
             <div className="mt-6 text-center">
               <Link
-                to="/pricing"
+                to="/signin"
                 className="font-medium text-primary-600 hover:text-primary-500"
               >
-                Learn about our pricing plans
+                Sign in to your account
               </Link>
             </div>
           </div>
@@ -195,4 +267,4 @@ const SignInPage: React.FC = () => {
   );
 };
 
-export default SignInPage;
+export default RegisterPage;

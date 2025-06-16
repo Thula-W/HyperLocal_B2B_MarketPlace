@@ -1,9 +1,12 @@
 import React, { useState } from 'react';
 import { useNavigate } from 'react-router-dom';
-import { Upload, DollarSign, Tag, FileText, CheckCircle } from 'lucide-react';
+import { Upload, DollarSign, Tag, FileText, CheckCircle, AlertCircle } from 'lucide-react';
+import { useAuth } from '../contexts/AuthContext';
+import { createListing } from '../services/firestore';
 
 const MakeListingPage: React.FC = () => {
   const navigate = useNavigate();
+  const { user } = useAuth();
   const [formData, setFormData] = useState({
     type: '',
     category: '',
@@ -14,6 +17,8 @@ const MakeListingPage: React.FC = () => {
     images: [] as File[]
   });
   const [success, setSuccess] = useState(false);
+  const [loading, setLoading] = useState(false);
+  const [error, setError] = useState('');
 
   const categories = {
     service: [
@@ -70,14 +75,43 @@ const MakeListingPage: React.FC = () => {
       images: prev.images.filter((_, i) => i !== index)
     }));
   };
-
-  const handleSubmit = (e: React.FormEvent) => {
+  const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
-    // Mock submission
-    setSuccess(true);
-    setTimeout(() => {
-      navigate('/profile');
-    }, 2000);
+    setError('');
+    
+    if (!user) {
+      setError('You must be logged in to create a listing');
+      return;
+    }
+
+    setLoading(true);
+
+    try {
+      await createListing({
+        title: formData.title,
+        description: formData.description,
+        type: formData.type as 'product' | 'service',
+        price: formData.price,
+        category: `${formData.category} - ${formData.subcategory}`,
+        userId: user.id,
+        userEmail: user.email,
+        userName: user.name,
+        userCompany: user.company,
+        status: 'active'      });      
+      console.log('Listing created successfully');
+      setSuccess(true);
+      
+      // Navigate after a shorter delay to reduce waiting time
+      setTimeout(() => {
+        console.log('Navigating to profile with refresh flag');
+        navigate('/profile', { state: { refresh: true }, replace: true });
+      }, 1500);
+    } catch (err) {
+      console.error('Error creating listing:', err);
+      setError('Failed to create listing. Please try again.');
+    } finally {
+      setLoading(false);
+    }
   };
 
   if (success) {
@@ -103,9 +137,14 @@ const MakeListingPage: React.FC = () => {
           <div className="mb-8">
             <h1 className="text-2xl font-bold text-gray-900">Create New Listing</h1>
             <p className="text-gray-600 mt-2">Share your products or services with local businesses</p>
-          </div>
+          </div>          <form onSubmit={handleSubmit} className="space-y-6">
+            {error && (
+              <div className="bg-red-50 border border-red-200 rounded-md p-4 flex items-center">
+                <AlertCircle className="h-5 w-5 text-red-400 mr-2" />
+                <span className="text-sm text-red-600">{error}</span>
+              </div>
+            )}
 
-          <form onSubmit={handleSubmit} className="space-y-6">
             {/* Type Selection */}
             <div>
               <label className="block text-sm font-medium text-gray-700 mb-2">
@@ -292,12 +331,12 @@ const MakeListingPage: React.FC = () => {
             </div>
 
             {/* Submit Button */}
-            <div className="flex space-x-4">
-              <button
+            <div className="flex space-x-4">              <button
                 type="submit"
-                className="flex-1 btn-primary py-3 text-base"
+                disabled={loading}
+                className="flex-1 btn-primary py-3 text-base disabled:opacity-50 disabled:cursor-not-allowed"
               >
-                Create Listing
+                {loading ? 'Creating Listing...' : 'Create Listing'}
               </button>
               <button
                 type="button"
