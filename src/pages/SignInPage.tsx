@@ -1,4 +1,4 @@
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import { useNavigate, Link, useLocation } from 'react-router-dom';
 import { Building2, Mail, Lock, AlertCircle } from 'lucide-react';
 import { useAuth } from '../contexts/AuthContext';
@@ -9,18 +9,31 @@ const SignInPage: React.FC = () => {
   const [error, setError] = useState('');
   const [loading, setLoading] = useState(false);
   const [googleLoading, setGoogleLoading] = useState(false);
-  const { login, loginWithGoogle } = useAuth();
+  const { login, loginWithGoogle, isAuthenticated, user } = useAuth();
   const navigate = useNavigate();
   const location = useLocation();
 
   const from = location.state?.from?.pathname || '/profile';
-  const handleSubmit = async (e: React.FormEvent) => {
+
+  // Monitor authentication state changes
+  useEffect(() => {
+    console.log('SignInPage - Auth state changed:', { isAuthenticated, user: user?.email || 'none' });
+    
+    if (isAuthenticated && user) {
+      console.log('User is authenticated, redirecting to:', from);
+      navigate(from, { replace: true });
+    }
+  }, [isAuthenticated, user, navigate, from]);  const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     setError('');
     setLoading(true);
+    
+    console.log('Sign in form submitted with email:', email);
+    
     try {
       await login(email, password);
-      navigate(from, { replace: true });
+      console.log('Login function completed successfully');
+      // Navigation will be handled by useEffect when auth state changes
     } catch (err) {
       console.error('Login error:', err);
       const errorCode = (err as { code?: string })?.code;
@@ -37,14 +50,14 @@ const SignInPage: React.FC = () => {
       setLoading(false);
     }
   };
-
   const handleGoogleSignIn = async () => {
     setError('');
     setGoogleLoading(true);
 
     try {
       await loginWithGoogle();
-      navigate(from, { replace: true });
+      console.log('Google login completed successfully');
+      // Navigation will be handled by useEffect when auth state changes
     } catch (err) {
       console.error('Google sign-in error:', err);
       const errorCode = (err as { code?: string })?.code;

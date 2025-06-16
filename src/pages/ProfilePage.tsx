@@ -21,8 +21,7 @@ const ProfilePage: React.FC = () => {
   const [activeTab, setActiveTab] = useState('overview');
   const [listings, setListings] = useState<Listing[]>([]);
   const [inquiries, setInquiries] = useState<{ sent: Inquiry[], received: Inquiry[] }>({ sent: [], received: [] });  const [loading, setLoading] = useState(true);
-  const [showProfileModal, setShowProfileModal] = useState(false);
-  const fetchData = useCallback(async () => {
+  const [showProfileModal, setShowProfileModal] = useState(false);  const fetchData = useCallback(async () => {
     if (!user) return;
     
     console.log('Fetching profile data for user:', user.id);
@@ -35,6 +34,8 @@ const ProfilePage: React.FC = () => {
       
       console.log('Fetched listings:', userListings.length);
       console.log('Fetched inquiries:', userInquiries);
+      console.log('Inquiries sent:', userInquiries.sent);
+      console.log('Inquiries received:', userInquiries.received);
       
       setListings(userListings);
       setInquiries(userInquiries);
@@ -49,6 +50,34 @@ const ProfilePage: React.FC = () => {
       setLoading(false);
     }
   }, [user]);
+
+  // Debug function to test direct inquiry queries
+  const testInquiryQueries = async () => {
+    if (!user) return;
+    
+    try {
+      console.log('=== DEBUGGING INQUIRY QUERIES ===');
+      const { getDocs, collection } = await import('firebase/firestore');
+      const { db } = await import('../firebase/firebase');
+      
+      // Get all inquiries to see what exists
+      const allInquiriesSnapshot = await getDocs(collection(db, 'inquiries'));
+      console.log('Total inquiries in database:', allInquiriesSnapshot.size);
+      
+      allInquiriesSnapshot.forEach((doc) => {
+        const data = doc.data();
+        console.log('Inquiry document:', doc.id, data);
+        console.log('  - From:', data.fromUserId, '| To:', data.toUserId);
+        console.log('  - Current user:', user.id);
+        console.log('  - Is current user sender?', data.fromUserId === user.id);
+        console.log('  - Is current user recipient?', data.toUserId === user.id);
+      });
+      
+      console.log('=== END INQUIRY DEBUG ===');
+    } catch (error) {
+      console.error('Debug inquiry query error:', error);
+    }
+  };
 
   useEffect(() => {
     fetchData();
@@ -68,16 +97,14 @@ const ProfilePage: React.FC = () => {
     let unsubscribe: (() => void) | undefined;
 
     const setupRealtimeListener = async () => {
-      if (!user) return;
-
-      try {
-        const { onSnapshot, collection, query, where, orderBy } = await import('firebase/firestore');
+      if (!user) return;      try {
+        const { onSnapshot, collection, query, where } = await import('firebase/firestore');
         const { db } = await import('../firebase/firebase');
 
+        // Simplified query without orderBy to avoid index requirements
         const q = query(
           collection(db, 'listings'),
-          where('userId', '==', user.id),
-          orderBy('createdAt', 'desc')
+          where('userId', '==', user.id)
         );
 
         unsubscribe = onSnapshot(q, (querySnapshot) => {
@@ -85,6 +112,10 @@ const ProfilePage: React.FC = () => {
           querySnapshot.forEach((doc) => {
             newListings.push({ id: doc.id, ...doc.data() } as Listing);
           });
+          
+          // Sort by createdAt in the frontend
+          newListings.sort((a, b) => new Date(b.createdAt).getTime() - new Date(a.createdAt).getTime());
+          
           console.log('Real-time update: received', newListings.length, 'listings');
           setListings(newListings);
         }, (error) => {
@@ -375,11 +406,21 @@ const ProfilePage: React.FC = () => {
                 )}
               </div>
             </div>
-          )}
-
-          {activeTab === 'inquiries-received' && (
-            <div className="p-6">
-              <h3 className="text-lg font-semibold text-gray-900 mb-6">Inquiries Received</h3>
+          )}          {activeTab === 'inquiries-received' && (
+            <div className="p-6">              <div className="flex justify-between items-center mb-6">
+                <h3 className="text-lg font-semibold text-gray-900">Inquiries Received</h3>
+                <div className="flex space-x-2">
+                  <span className="text-sm text-gray-600">
+                    Count: {inquiries.received.length}
+                  </span>
+                  <button
+                    onClick={testInquiryQueries}
+                    className="btn-outline flex items-center space-x-2"
+                  >
+                    <span>Debug Inquiries</span>
+                  </button>
+                </div>
+              </div>
               <div className="space-y-4">
                 {inquiries.received.length > 0 ? inquiries.received.map((inquiry) => (
                   <div key={inquiry.id} className="bg-white rounded-lg border border-gray-200 p-6">

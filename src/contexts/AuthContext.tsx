@@ -112,26 +112,53 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
       console.error('Error creating user data from Google:', error);
       throw error;
     }
-  };
-
-  useEffect(() => {
+  };  useEffect(() => {
     const unsubscribe = onAuthStateChanged(auth, async (firebaseUser) => {
+      console.log('Auth state changed:', firebaseUser?.uid || 'signed out');
+      
       if (firebaseUser) {
-        const userData = await getUserData(firebaseUser);
+        console.log('Fetching user data for auth state change');
+        let userData = await getUserData(firebaseUser);
+        console.log('User data from Firestore:', userData);
+        
+        // If no user data exists, create it (fallback for existing users)
+        if (!userData) {
+          console.log('No user data found, creating fallback user document');
+          const name = firebaseUser.displayName || firebaseUser.email?.split('@')[0] || 'User';
+          userData = await createUserData(firebaseUser, name, '');
+        }
+        
         setUser(userData);
       } else {
+        console.log('User signed out');
         setUser(null);
       }
       setLoading(false);
     });
 
     return () => unsubscribe();
-  }, []);
-
+  }, []); // Remove user dependency to avoid infinite loops
   const login = async (email: string, password: string): Promise<void> => {
     try {
-      await signInWithEmailAndPassword(auth, email, password);
-      // User state will be updated by onAuthStateChanged
+      console.log('Attempting login for email:', email);
+      const userCredential = await signInWithEmailAndPassword(auth, email, password);
+      const firebaseUser = userCredential.user;
+      console.log('Firebase auth successful for user:', firebaseUser.uid);
+      
+      // Try to get existing user data
+      let userData = await getUserData(firebaseUser);
+      console.log('Existing user data:', userData);
+      
+      // If no user data exists in Firestore, create it
+      if (!userData) {
+        console.log('No user data found, creating new user document');
+        // Extract name from email (fallback) or use displayName
+        const name = firebaseUser.displayName || firebaseUser.email?.split('@')[0] || 'User';
+        userData = await createUserData(firebaseUser, name, ''); // Empty company for now
+      }
+      
+      console.log('Setting user data:', userData);
+      setUser(userData);
     } catch (error) {
       console.error('Login error:', error);
       throw error;

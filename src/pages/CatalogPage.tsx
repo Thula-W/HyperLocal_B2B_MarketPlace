@@ -1,25 +1,14 @@
 import React, { useState, useEffect } from 'react';
 import { useNavigate } from 'react-router-dom';
-import { Search, Filter, MessageSquare, Building2, Star, ArrowLeft } from 'lucide-react';
+import { Search, Filter, MessageSquare, Building2, Star, ArrowLeft, Loader2, RefreshCw } from 'lucide-react';
 import { useAuth } from '../contexts/AuthContext';
-
-interface Listing {
-  id: number;
-  title: string;
-  price: string;
-  company: string;
-  type: 'service' | 'product';
-  category: string;
-  subcategory: string;
-  rating: number;
-  reviews: number;
-  description: string;
-  image: string;
-}
+import { getAllListings, createInquiry, Listing } from '../services/firestore';
 
 const CatalogPage: React.FC = () => {
-  const { isAuthenticated } = useAuth();
+  const { user, isAuthenticated } = useAuth();
   const navigate = useNavigate();
+  const [listings, setListings] = useState<Listing[]>([]);
+  const [loading, setLoading] = useState(true);
   const [selectedType, setSelectedType] = useState<'service' | 'product' | ''>('');
   const [selectedCategory, setSelectedCategory] = useState('');
   const [selectedSubcategory, setSelectedSubcategory] = useState('');
@@ -27,95 +16,83 @@ const CatalogPage: React.FC = () => {
   const [showInquiryModal, setShowInquiryModal] = useState(false);
   const [selectedListing, setSelectedListing] = useState<Listing | null>(null);
   const [inquiryMessage, setInquiryMessage] = useState('');
-
+  const [submittingInquiry, setSubmittingInquiry] = useState(false);
   useEffect(() => {
     if (!isAuthenticated) {
       navigate('/signin');
     }
-  }, [isAuthenticated, navigate]);
+  }, [isAuthenticated, navigate]);  // Fetch all listings from Firestore
+  useEffect(() => {
+    const fetchListings = async () => {
+      try {
+        setLoading(true);
+        console.log('Starting to fetch listings...');
+        const fetchedListings = await getAllListings(50); // Fetch up to 50 listings
+        console.log('Fetched listings from Firestore:', fetchedListings.length);
+        console.log('Listings data:', fetchedListings);
+        setListings(fetchedListings);
+      } catch (error) {
+        console.error('Error fetching listings:', error);
+        // Show a user-friendly error message
+        alert('Failed to load listings. Please check the console for details.');
+      } finally {
+        setLoading(false);
+      }
+    };
 
-  // Mock data
-  const mockListings: Listing[] = [
-    {
-      id: 1,
-      title: 'Professional Web Design Services',
-      price: '$150/hour',
-      company: 'DesignPro Studio',
-      type: 'service',
-      category: 'Professional Services',
-      subcategory: 'Design',
-      rating: 4.8,
-      reviews: 24,
-      description: 'Custom web design and development for businesses of all sizes.',
-      image: 'https://images.pexels.com/photos/196644/pexels-photo-196644.jpeg?auto=compress&cs=tinysrgb&w=400'
-    },
-    {
-      id: 2,
-      title: 'Office Cleaning Services',
-      price: '$80/visit',
-      company: 'CleanPro Solutions',
-      type: 'service',
-      category: 'Business Services',
-      subcategory: 'Cleaning',
-      rating: 4.9,
-      reviews: 156,
-      description: 'Comprehensive office cleaning services for professional environments.',
-      image: 'https://images.pexels.com/photos/4108715/pexels-photo-4108715.jpeg?auto=compress&cs=tinysrgb&w=400'
-    },
-    {
-      id: 3,
-      title: 'Industrial Printer Paper - Bulk',
-      price: '$45/case',
-      company: 'OfficePlus Supply',
-      type: 'product',
-      category: 'Office Supplies',
-      subcategory: 'Stationery',
-      rating: 4.6,
-      reviews: 89,
-      description: 'High-quality printer paper perfect for high-volume printing needs.',
-      image: 'https://images.pexels.com/photos/4226876/pexels-photo-4226876.jpeg?auto=compress&cs=tinysrgb&w=400'
-    },
-    {
-      id: 4,
-      title: 'Business Consulting Services',
-      price: '$200/hour',
-      company: 'Strategic Solutions Inc',
-      type: 'service',
-      category: 'Professional Services',
-      subcategory: 'Consulting',
-      rating: 4.7,
-      reviews: 43,
-      description: 'Strategic business consulting to help your company grow and optimize operations.',
-      image: 'https://images.pexels.com/photos/3184291/pexels-photo-3184291.jpeg?auto=compress&cs=tinysrgb&w=400'
-    },
-    {
-      id: 5,
-      title: 'Commercial Security System',
-      price: '$2,500/unit',
-      company: 'SecureGuard Tech',
-      type: 'product',
-      category: 'Industrial Equipment',
-      subcategory: 'Safety Equipment',
-      rating: 4.8,
-      reviews: 67,
-      description: 'State-of-the-art security system with 24/7 monitoring capabilities.',
-      image: 'https://images.pexels.com/photos/430205/pexels-photo-430205.jpeg?auto=compress&cs=tinysrgb&w=400'
-    },
-    {
-      id: 6,
-      title: 'IT Support & Maintenance',
-      price: '$120/hour',
-      company: 'TechSupport Pro',
-      type: 'service',
-      category: 'Technical Services',
-      subcategory: 'IT Support',
-      rating: 4.9,
-      reviews: 234,
-      description: 'Comprehensive IT support and maintenance for small to medium businesses.',
-      image: 'https://images.pexels.com/photos/3861969/pexels-photo-3861969.jpeg?auto=compress&cs=tinysrgb&w=400'
+    if (isAuthenticated) {
+      console.log('User is authenticated, fetching listings...');
+      fetchListings();
+    } else {
+      console.log('User not authenticated, skipping fetch');
     }
-  ];
+  }, [isAuthenticated]);
 
+  // Set up real-time listener for all listings
+  useEffect(() => {
+    let unsubscribe: (() => void) | undefined;
+
+    const setupRealtimeListener = async () => {
+      if (!isAuthenticated) return;      try {
+        const { onSnapshot, collection, query, where } = await import('firebase/firestore');
+        const { db } = await import('../firebase/firebase');
+
+        // Simplified query without orderBy to avoid index requirements
+        const q = query(
+          collection(db, 'listings'),
+          where('status', '==', 'active')
+        );
+
+        unsubscribe = onSnapshot(q, (querySnapshot) => {
+          const newListings: Listing[] = [];
+          querySnapshot.forEach((doc) => {
+            newListings.push({ id: doc.id, ...doc.data() } as Listing);
+          });
+          
+          // Sort by createdAt in the frontend
+          newListings.sort((a, b) => new Date(b.createdAt).getTime() - new Date(a.createdAt).getTime());
+          
+          console.log('Real-time update: received', newListings.length, 'listings for catalog');
+          setListings(newListings);
+          setLoading(false);
+        }, (error) => {
+          console.error('Real-time listener error:', error);
+          setLoading(false);
+        });
+      } catch (error) {
+        console.error('Error setting up real-time listener:', error);
+        setLoading(false);
+      }
+    };
+
+    setupRealtimeListener();
+
+    return () => {
+      if (unsubscribe) {
+        unsubscribe();
+      }
+    };
+  }, [isAuthenticated]);
   const categories = {
     service: [
       'Professional Services',
@@ -138,54 +115,112 @@ const CatalogPage: React.FC = () => {
     'Technology': ['Computers', 'Software', 'Networking', 'Mobile Devices']
   };
 
-  const filteredListings = mockListings.filter(listing => {
+  const filteredListings = listings.filter(listing => {
     const matchesType = !selectedType || listing.type === selectedType;
-    const matchesCategory = !selectedCategory || listing.category === selectedCategory;
-    const matchesSubcategory = !selectedSubcategory || listing.subcategory === selectedSubcategory;
+    const matchesCategory = !selectedCategory || listing.category.includes(selectedCategory);
+    const matchesSubcategory = !selectedSubcategory || listing.category.includes(selectedSubcategory);
     const matchesSearch = !searchTerm || 
       listing.title.toLowerCase().includes(searchTerm.toLowerCase()) ||
-      listing.company.toLowerCase().includes(searchTerm.toLowerCase()) ||
+      listing.userCompany.toLowerCase().includes(searchTerm.toLowerCase()) ||
       listing.description.toLowerCase().includes(searchTerm.toLowerCase());
     
     return matchesType && matchesCategory && matchesSubcategory && matchesSearch;
   });
-
   const handleInquiry = (listing: Listing) => {
     setSelectedListing(listing);
     setShowInquiryModal(true);
   };
 
-  const submitInquiry = () => {
-    // Mock inquiry submission
-    console.log('Inquiry submitted:', {
-      listing: selectedListing,
-      message: inquiryMessage
-    });
-    setShowInquiryModal(false);
-    setInquiryMessage('');
-    setSelectedListing(null);
-    alert('Inquiry sent successfully!');
+  const submitInquiry = async () => {
+    if (!selectedListing || !user || !inquiryMessage.trim()) return;
+    
+    setSubmittingInquiry(true);
+    try {
+      await createInquiry({
+        listingId: selectedListing.id!,
+        listingTitle: selectedListing.title,
+        fromUserId: user.id,
+        fromUserEmail: user.email,
+        fromUserName: user.name,
+        fromUserCompany: user.company || '',
+        toUserId: selectedListing.userId,
+        toUserEmail: selectedListing.userEmail,
+        message: inquiryMessage,
+        status: 'pending'
+      });
+      
+      setShowInquiryModal(false);
+      setInquiryMessage('');
+      setSelectedListing(null);
+      alert('Inquiry sent successfully!');
+    } catch (error) {
+      console.error('Error sending inquiry:', error);
+      alert('Failed to send inquiry. Please try again.');
+    } finally {
+      setSubmittingInquiry(false);
+    }
   };
-
   const resetFilters = () => {
     setSelectedType('');
     setSelectedCategory('');
     setSelectedSubcategory('');
     setSearchTerm('');
   };
+  const refreshListings = async () => {
+    try {
+      setLoading(true);
+      const fetchedListings = await getAllListings(50);
+      console.log('Manual refresh: fetched', fetchedListings.length, 'listings');
+      setListings(fetchedListings);
+    } catch (error) {
+      console.error('Error refreshing listings:', error);
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  // Debug function to test raw Firestore access
+  const testDirectQuery = async () => {
+    try {
+      const { getDocs, collection } = await import('firebase/firestore');
+      const { db } = await import('../firebase/firebase');
+      
+      const querySnapshot = await getDocs(collection(db, 'listings'));
+      console.log('Direct query found', querySnapshot.size, 'total documents');
+      querySnapshot.forEach((doc) => {
+        console.log('Document:', doc.id, doc.data());
+      });
+    } catch (error) {
+      console.error('Direct query error:', error);
+    }
+  };
 
   return (
     <div className="min-h-screen bg-gray-50 py-8">
-      <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
-        {/* Header */}
+      <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">        {/* Header */}
         <div className="mb-8">
-          <button
-            onClick={() => navigate('/')}
-            className="flex items-center text-gray-600 hover:text-gray-900 mb-4"
-          >
-            <ArrowLeft className="h-5 w-5 mr-2" />
-            Back to Home
-          </button>
+          <div className="flex items-center justify-between mb-4">
+            <button
+              onClick={() => navigate('/')}
+              className="flex items-center text-gray-600 hover:text-gray-900"
+            >
+              <ArrowLeft className="h-5 w-5 mr-2" />
+              Back to Home
+            </button>            <button
+              onClick={refreshListings}
+              disabled={loading}
+              className="btn-outline flex items-center space-x-2"
+            >
+              <RefreshCw className={`h-4 w-4 ${loading ? 'animate-spin' : ''}`} />
+              <span>Refresh</span>
+            </button>
+            <button
+              onClick={testDirectQuery}
+              className="btn-outline flex items-center space-x-2 ml-2"
+            >
+              <span>Debug Query</span>
+            </button>
+          </div>
           <h1 className="text-3xl font-bold text-gray-900">Business Catalog</h1>
           <p className="text-gray-600 mt-2">Discover local businesses offering products and services</p>
         </div>
@@ -278,82 +313,112 @@ const CatalogPage: React.FC = () => {
           <p className="text-gray-600">
             Showing {filteredListings.length} results
           </p>
-        </div>
-
-        {/* Listings Grid */}
-        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
-          {filteredListings.map((listing) => (
-            <div key={listing.id} className="card hover:shadow-lg transition-shadow">
-              <img
-                src={listing.image}
-                alt={listing.title}
-                className="w-full h-48 object-cover rounded-lg mb-4"
-              />
-              
-              <div className="flex items-start justify-between mb-2">
-                <h3 className="text-lg font-semibold text-gray-900 line-clamp-2">{listing.title}</h3>
-                <span className={`px-2 py-1 rounded-full text-xs font-medium ${
-                  listing.type === 'service' 
-                    ? 'bg-blue-100 text-blue-800' 
-                    : 'bg-green-100 text-green-800'
-                }`}>
-                  {listing.type}
-                </span>
-              </div>
-
-              <div className="flex items-center space-x-2 mb-2">
-                <Building2 className="h-4 w-4 text-gray-500" />
-                <span className="text-sm text-gray-600">{listing.company}</span>
-              </div>
-
-              <div className="flex items-center space-x-2 mb-3">
-                <div className="flex items-center">
-                  <Star className="h-4 w-4 text-yellow-400 fill-current" />
-                  <span className="text-sm font-medium text-gray-700 ml-1">{listing.rating}</span>
+        </div>        {/* Listings Grid */}
+        {loading ? (
+          <div className="flex justify-center items-center py-12">
+            <Loader2 className="h-8 w-8 animate-spin text-primary-600" />
+            <span className="ml-2 text-gray-600">Loading listings...</span>
+          </div>
+        ) : (
+          <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
+            {filteredListings.map((listing) => (
+              <div key={listing.id} className="card hover:shadow-lg transition-shadow">
+                {/* Placeholder image since Firestore listings don't have images yet */}
+                <div className="w-full h-48 bg-gradient-to-br from-primary-100 to-primary-200 rounded-lg mb-4 flex items-center justify-center">
+                  <div className="text-center">
+                    <div className={`w-16 h-16 mx-auto rounded-full flex items-center justify-center mb-2 ${
+                      listing.type === 'service' ? 'bg-blue-500' : 'bg-green-500'
+                    }`}>
+                      {listing.type === 'service' ? (
+                        <MessageSquare className="h-8 w-8 text-white" />
+                      ) : (
+                        <Building2 className="h-8 w-8 text-white" />
+                      )}
+                    </div>
+                    <span className="text-sm text-gray-600">{listing.type}</span>
+                  </div>
                 </div>
-                <span className="text-sm text-gray-500">({listing.reviews} reviews)</span>
+                
+                <div className="flex items-start justify-between mb-2">
+                  <h3 className="text-lg font-semibold text-gray-900 line-clamp-2">{listing.title}</h3>
+                  <span className={`px-2 py-1 rounded-full text-xs font-medium ${
+                    listing.type === 'service' 
+                      ? 'bg-blue-100 text-blue-800' 
+                      : 'bg-green-100 text-green-800'
+                  }`}>
+                    {listing.type}
+                  </span>
+                </div>
+
+                <div className="flex items-center space-x-2 mb-2">
+                  <Building2 className="h-4 w-4 text-gray-500" />
+                  <span className="text-sm text-gray-600">{listing.userCompany}</span>
+                </div>
+
+                <div className="flex items-center space-x-2 mb-3">
+                  <div className="flex items-center">
+                    <Star className="h-4 w-4 text-yellow-400 fill-current" />
+                    <span className="text-sm font-medium text-gray-700 ml-1">New</span>
+                  </div>
+                  <span className="text-sm text-gray-500">({listing.views || 0} views)</span>
+                </div>
+
+                <p className="text-gray-600 text-sm mb-4 line-clamp-2">{listing.description}</p>
+
+                <div className="flex items-center justify-between">
+                  <span className="text-lg font-bold text-gray-900">{listing.price}</span>
+                  <button
+                    onClick={() => handleInquiry(listing)}
+                    className="btn-primary flex items-center space-x-2"
+                  >
+                    <MessageSquare className="h-4 w-4" />
+                    <span>Inquire</span>
+                  </button>
+                </div>
               </div>
-
-              <p className="text-gray-600 text-sm mb-4 line-clamp-2">{listing.description}</p>
-
-              <div className="flex items-center justify-between">
-                <span className="text-lg font-bold text-gray-900">{listing.price}</span>
-                <button
-                  onClick={() => handleInquiry(listing)}
-                  className="btn-primary flex items-center space-x-2"
-                >
-                  <MessageSquare className="h-4 w-4" />
-                  <span>Inquire</span>
-                </button>
-              </div>
-            </div>
-          ))}
-        </div>
-
-        {filteredListings.length === 0 && (
+            ))}
+          </div>
+        )}        {filteredListings.length === 0 && !loading && (
           <div className="text-center py-12">
             <div className="bg-white rounded-xl shadow-sm border border-gray-200 p-8">
-              <Filter className="h-12 w-12 text-gray-400 mx-auto mb-4" />
-              <h3 className="text-lg font-semibold text-gray-900 mb-2">No results found</h3>
-              <p className="text-gray-600 mb-4">
-                Try adjusting your filters or search terms to find what you're looking for.
-              </p>
-              <button
-                onClick={resetFilters}
-                className="btn-primary"
-              >
-                Clear Filters
-              </button>
+              {listings.length === 0 ? (
+                <>
+                  <Building2 className="h-12 w-12 text-gray-400 mx-auto mb-4" />
+                  <h3 className="text-lg font-semibold text-gray-900 mb-2">No listings available</h3>
+                  <p className="text-gray-600 mb-4">
+                    Be the first to create a listing and connect with other businesses!
+                  </p>
+                  <button
+                    onClick={() => navigate('/make-listing')}
+                    className="btn-primary"
+                  >
+                    Create First Listing
+                  </button>
+                </>
+              ) : (
+                <>
+                  <Filter className="h-12 w-12 text-gray-400 mx-auto mb-4" />
+                  <h3 className="text-lg font-semibold text-gray-900 mb-2">No results found</h3>
+                  <p className="text-gray-600 mb-4">
+                    Try adjusting your filters or search terms to find what you're looking for.
+                  </p>
+                  <button
+                    onClick={resetFilters}
+                    className="btn-primary"
+                  >
+                    Clear Filters
+                  </button>
+                </>
+              )}
             </div>
           </div>
         )}
 
         {/* Inquiry Modal */}
         {showInquiryModal && selectedListing && (
-          <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center p-4 z-50">
-            <div className="bg-white rounded-xl shadow-xl max-w-md w-full p-6">
+          <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center p-4 z-50">            <div className="bg-white rounded-xl shadow-xl max-w-md w-full p-6">
               <h3 className="text-lg font-semibold text-gray-900 mb-4">
-                Send Inquiry to {selectedListing.company}
+                Send Inquiry to {selectedListing.userCompany}
               </h3>
               
               <div className="mb-4">
@@ -373,15 +438,20 @@ const CatalogPage: React.FC = () => {
                   placeholder="Please provide details about your requirements..."
                   required
                 />
-              </div>
-
-              <div className="flex space-x-4">
+              </div>              <div className="flex space-x-4">
                 <button
                   onClick={submitInquiry}
-                  className="flex-1 btn-primary"
-                  disabled={!inquiryMessage.trim()}
+                  className="flex-1 btn-primary flex items-center justify-center"
+                  disabled={!inquiryMessage.trim() || submittingInquiry}
                 >
-                  Send Inquiry
+                  {submittingInquiry ? (
+                    <>
+                      <Loader2 className="h-4 w-4 animate-spin mr-2" />
+                      Sending...
+                    </>
+                  ) : (
+                    'Send Inquiry'
+                  )}
                 </button>
                 <button
                   onClick={() => {
