@@ -137,6 +137,27 @@ export const updateListing = async (listingId: string, updates: Partial<Listing>
   }
 };
 
+export const incrementListingViews = async (listingId: string): Promise<void> => {
+  try {
+    console.log('Incrementing views for listing:', listingId);
+    const listingRef = doc(db, 'listings', listingId);
+    const listingDoc = await getDoc(listingRef);
+    
+    if (listingDoc.exists()) {
+      const currentViews = listingDoc.data().views || 0;
+      await updateDoc(listingRef, {
+        views: currentViews + 1
+      });
+      console.log('Updated listing views from', currentViews, 'to', currentViews + 1);
+    } else {
+      console.warn('Listing not found for view increment:', listingId);
+    }
+  } catch (error) {
+    console.error('Error incrementing listing views:', error);
+    throw error;
+  }
+};
+
 export const deleteListing = async (listingId: string): Promise<void> => {
   try {
     await deleteDoc(doc(db, 'listings', listingId));
