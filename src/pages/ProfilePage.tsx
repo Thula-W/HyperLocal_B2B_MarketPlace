@@ -68,16 +68,14 @@ const ProfilePage: React.FC = () => {
     let unsubscribe: (() => void) | undefined;
 
     const setupRealtimeListener = async () => {
-      if (!user) return;
-
-      try {
-        const { onSnapshot, collection, query, where, orderBy } = await import('firebase/firestore');
+      if (!user) return;      try {
+        const { onSnapshot, collection, query, where } = await import('firebase/firestore');
         const { db } = await import('../firebase/firebase');
 
+        // Simplified query without orderBy to avoid index requirements
         const q = query(
           collection(db, 'listings'),
-          where('userId', '==', user.id),
-          orderBy('createdAt', 'desc')
+          where('userId', '==', user.id)
         );
 
         unsubscribe = onSnapshot(q, (querySnapshot) => {
@@ -85,6 +83,10 @@ const ProfilePage: React.FC = () => {
           querySnapshot.forEach((doc) => {
             newListings.push({ id: doc.id, ...doc.data() } as Listing);
           });
+          
+          // Sort by createdAt in the frontend
+          newListings.sort((a, b) => new Date(b.createdAt).getTime() - new Date(a.createdAt).getTime());
+          
           console.log('Real-time update: received', newListings.length, 'listings');
           setListings(newListings);
         }, (error) => {

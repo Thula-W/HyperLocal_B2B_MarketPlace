@@ -69,10 +69,10 @@ export const createListing = async (listing: Omit<Listing, 'id' | 'createdAt' | 
 
 export const getUserListings = async (userId: string): Promise<Listing[]> => {
   try {
+    // Simplified query without orderBy to avoid index requirements
     const q = query(
       collection(db, 'listings'),
-      where('userId', '==', userId),
-      orderBy('createdAt', 'desc')
+      where('userId', '==', userId)
     );
     
     const querySnapshot = await getDocs(q);
@@ -81,6 +81,9 @@ export const getUserListings = async (userId: string): Promise<Listing[]> => {
     querySnapshot.forEach((doc) => {
       listings.push({ id: doc.id, ...doc.data() } as Listing);
     });
+    
+    // Sort by createdAt in the frontend
+    listings.sort((a, b) => new Date(b.createdAt).getTime() - new Date(a.createdAt).getTime());
     
     return listings;
   } catch (error) {
@@ -91,20 +94,30 @@ export const getUserListings = async (userId: string): Promise<Listing[]> => {
 
 export const getAllListings = async (limitCount: number = 20): Promise<Listing[]> => {
   try {
+    console.log('getAllListings: Starting query...');
+    // Simplified query without orderBy to avoid index requirements
     const q = query(
       collection(db, 'listings'),
       where('status', '==', 'active'),
-      orderBy('createdAt', 'desc'),
       limit(limitCount)
     );
     
+    console.log('getAllListings: Executing query...');
     const querySnapshot = await getDocs(q);
+    console.log('getAllListings: Query returned', querySnapshot.size, 'documents');
+    
     const listings: Listing[] = [];
     
     querySnapshot.forEach((doc) => {
-      listings.push({ id: doc.id, ...doc.data() } as Listing);
+      const data = doc.data();
+      console.log('getAllListings: Processing document', doc.id, data);
+      listings.push({ id: doc.id, ...data } as Listing);
     });
     
+    // Sort by createdAt in the frontend
+    listings.sort((a, b) => new Date(b.createdAt).getTime() - new Date(a.createdAt).getTime());
+    
+    console.log('getAllListings: Returning', listings.length, 'sorted listings');
     return listings;
   } catch (error) {
     console.error('Error fetching listings:', error);
