@@ -1,8 +1,8 @@
 import React, { useState, useEffect } from 'react';
 import { useNavigate } from 'react-router-dom';
-import { Search, Filter, MessageSquare, Building2, Star, ArrowLeft, Loader2, RefreshCw } from 'lucide-react';
+import { Search, Filter, MessageSquare, Building2, Star, ArrowLeft, Loader2, RefreshCw, X, Eye, Calendar } from 'lucide-react';
 import { useAuth } from '../contexts/AuthContext';
-import { getAllListings, createInquiry, Listing } from '../services/firestore';
+import { getAllListings, createInquiry, incrementListingViews, Listing } from '../services/firestore';
 
 const CatalogPage: React.FC = () => {
   const { user, isAuthenticated } = useAuth();
@@ -12,8 +12,8 @@ const CatalogPage: React.FC = () => {
   const [selectedType, setSelectedType] = useState<'service' | 'product' | ''>('');
   const [selectedCategory, setSelectedCategory] = useState('');
   const [selectedSubcategory, setSelectedSubcategory] = useState('');
-  const [searchTerm, setSearchTerm] = useState('');
-  const [showInquiryModal, setShowInquiryModal] = useState(false);
+  const [searchTerm, setSearchTerm] = useState('');  const [showInquiryModal, setShowInquiryModal] = useState(false);
+  const [showListingModal, setShowListingModal] = useState(false);
   const [selectedListing, setSelectedListing] = useState<Listing | null>(null);
   const [inquiryMessage, setInquiryMessage] = useState('');
   const [submittingInquiry, setSubmittingInquiry] = useState(false);
@@ -125,10 +125,34 @@ const CatalogPage: React.FC = () => {
       listing.description.toLowerCase().includes(searchTerm.toLowerCase());
     
     return matchesType && matchesCategory && matchesSubcategory && matchesSearch;
-  });
-  const handleInquiry = (listing: Listing) => {
+  });  const handleInquiry = (listing: Listing) => {
     setSelectedListing(listing);
     setShowInquiryModal(true);
+  };
+
+  const handleListingClick = async (listing: Listing) => {
+    try {
+      // Increment view count
+      await incrementListingViews(listing.id!);
+      
+      // Update local state to reflect the view count change
+      setListings(prevListings => 
+        prevListings.map(l => 
+          l.id === listing.id 
+            ? { ...l, views: (l.views || 0) + 1 }
+            : l
+        )
+      );
+      
+      // Show listing details modal
+      setSelectedListing(listing);
+      setShowListingModal(true);
+    } catch (error) {
+      console.error('Error handling listing click:', error);
+      // Still show the modal even if view increment fails
+      setSelectedListing(listing);
+      setShowListingModal(true);
+    }
   };
 
   const submitInquiry = async () => {
@@ -319,10 +343,9 @@ const CatalogPage: React.FC = () => {
             <Loader2 className="h-8 w-8 animate-spin text-primary-600" />
             <span className="ml-2 text-gray-600">Loading listings...</span>
           </div>
-        ) : (
-          <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
+        ) : (          <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
             {filteredListings.map((listing) => (
-              <div key={listing.id} className="card hover:shadow-lg transition-shadow">
+              <div key={listing.id} className="card hover:shadow-lg transition-shadow cursor-pointer" onClick={() => handleListingClick(listing)}>
                 {/* Placeholder image since Firestore listings don't have images yet */}
                 <div className="w-full h-48 bg-gradient-to-br from-primary-100 to-primary-200 rounded-lg mb-4 flex items-center justify-center">
                   <div className="text-center">
@@ -368,7 +391,10 @@ const CatalogPage: React.FC = () => {
                 <div className="flex items-center justify-between">
                   <span className="text-lg font-bold text-gray-900">{listing.price}</span>
                   <button
-                    onClick={() => handleInquiry(listing)}
+                    onClick={(e) => {
+                      e.stopPropagation(); // Prevent triggering the card click
+                      handleInquiry(listing);
+                    }}
                     className="btn-primary flex items-center space-x-2"
                   >
                     <MessageSquare className="h-4 w-4" />
@@ -410,6 +436,133 @@ const CatalogPage: React.FC = () => {
                   </button>
                 </>
               )}
+            </div>
+          </div>
+        )}
+
+        {/* Listing Detail Modal */}
+        {showListingModal && selectedListing && (
+          <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center p-4 z-50">
+            <div className="bg-white rounded-xl shadow-xl max-w-2xl w-full max-h-[90vh] overflow-y-auto">
+              {/* Modal Header */}
+              <div className="sticky top-0 bg-white border-b border-gray-200 px-6 py-4 flex items-center justify-between">
+                <h2 className="text-xl font-semibold text-gray-900">Listing Details</h2>
+                <button
+                  onClick={() => {
+                    setShowListingModal(false);
+                    setSelectedListing(null);
+                  }}
+                  className="text-gray-400 hover:text-gray-600"
+                >
+                  <X className="h-6 w-6" />
+                </button>
+              </div>
+
+              {/* Modal Content */}
+              <div className="p-6">
+                {/* Listing Header */}
+                <div className="mb-6">
+                  <div className="flex items-start justify-between mb-4">
+                    <div className="flex-1">
+                      <h1 className="text-2xl font-bold text-gray-900 mb-2">{selectedListing.title}</h1>
+                      <div className="flex items-center space-x-4 text-sm text-gray-600">
+                        <span className={`px-3 py-1 rounded-full text-xs font-medium ${
+                          selectedListing.type === 'service' 
+                            ? 'bg-blue-100 text-blue-800' 
+                            : 'bg-green-100 text-green-800'
+                        }`}>
+                          {selectedListing.type}
+                        </span>
+                        <div className="flex items-center">
+                          <Building2 className="h-4 w-4 mr-1" />
+                          {selectedListing.userCompany}
+                        </div>
+                        <div className="flex items-center">
+                          <Eye className="h-4 w-4 mr-1" />
+                          {selectedListing.views || 0} views
+                        </div>
+                      </div>
+                    </div>
+                    <div className="text-right">
+                      <div className="text-2xl font-bold text-primary-600 mb-1">{selectedListing.price}</div>
+                      <div className="text-sm text-gray-500">
+                        <div className="flex items-center">
+                          <Calendar className="h-4 w-4 mr-1" />
+                          {new Date(selectedListing.createdAt).toLocaleDateString()}
+                        </div>
+                      </div>
+                    </div>
+                  </div>
+                </div>
+
+                {/* Listing Image Placeholder */}
+                <div className="w-full h-64 bg-gradient-to-br from-primary-100 to-primary-200 rounded-lg mb-6 flex items-center justify-center">
+                  <div className="text-center">
+                    <div className={`w-20 h-20 mx-auto rounded-full flex items-center justify-center mb-3 ${
+                      selectedListing.type === 'service' ? 'bg-blue-500' : 'bg-green-500'
+                    }`}>
+                      {selectedListing.type === 'service' ? (
+                        <MessageSquare className="h-10 w-10 text-white" />
+                      ) : (
+                        <Building2 className="h-10 w-10 text-white" />
+                      )}
+                    </div>
+                    <span className="text-lg text-gray-600 capitalize">{selectedListing.type}</span>
+                  </div>
+                </div>
+
+                {/* Description */}
+                <div className="mb-6">
+                  <h3 className="text-lg font-semibold text-gray-900 mb-3">Description</h3>
+                  <p className="text-gray-700 leading-relaxed whitespace-pre-wrap">{selectedListing.description}</p>
+                </div>
+
+                {/* Category Information */}
+                <div className="mb-6">
+                  <h3 className="text-lg font-semibold text-gray-900 mb-3">Category</h3>
+                  <p className="text-gray-700">{selectedListing.category}</p>
+                </div>
+
+                {/* Provider Information */}
+                <div className="mb-6">
+                  <h3 className="text-lg font-semibold text-gray-900 mb-3">Provider Information</h3>
+                  <div className="bg-gray-50 rounded-lg p-4">
+                    <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                      <div>
+                        <p className="text-sm text-gray-600">Company</p>
+                        <p className="font-medium text-gray-900">{selectedListing.userCompany}</p>
+                      </div>
+                      <div>
+                        <p className="text-sm text-gray-600">Contact Person</p>
+                        <p className="font-medium text-gray-900">{selectedListing.userName}</p>
+                      </div>
+                    </div>
+                  </div>
+                </div>
+
+                {/* Action Buttons */}
+                <div className="flex space-x-4">
+                  <button
+                    onClick={() => {
+                      setShowListingModal(false);
+                      handleInquiry(selectedListing);
+                    }}
+                    className="flex-1 btn-primary flex items-center justify-center"
+                  >
+                    <MessageSquare className="h-5 w-5 mr-2" />
+                    Send Inquiry
+                  </button>
+                  <button
+                    onClick={() => {
+                      setShowListingModal(false);
+                      setSelectedListing(null);
+                    }}
+                    className="btn-outline px-8"
+                  >
+                    Close
+                  </button>
+                </div>
+              </div>
             </div>
           </div>
         )}
