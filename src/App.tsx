@@ -2,6 +2,7 @@ import { BrowserRouter as Router, Routes, Route } from 'react-router-dom';
 import { AuthProvider, useAuth } from './contexts/AuthContext';
 import Navbar from './components/Navbar';
 import ProtectedRoute from './components/ProtectedRoute';
+import BusinessCompletionGuard from './components/BusinessCompletionGuard';
 import LandingPage from './pages/LandingPage';
 import SignInPage from './pages/SignInPage';
 import RegisterPage from './pages/RegisterPage';
@@ -29,9 +30,17 @@ const AppContent = () => {
       <Navbar />      <Routes>
         <Route path="/" element={<LandingPage />} />
         <Route path="/signin" element={<SignInPage />} />
-        <Route path="/register" element={<RegisterPage />} />
-        <Route path="/pricing" element={<PricingPage />} />
-        <Route path="/catalog" element={<CatalogPage />} />
+        <Route path="/register" element={<RegisterPage />} />        <Route path="/pricing" element={<PricingPage />} />
+        <Route 
+          path="/catalog" 
+          element={
+            <ProtectedRoute>
+              <BusinessCompletionGuard>
+                <CatalogPage />
+              </BusinessCompletionGuard>
+            </ProtectedRoute>
+          } 
+        />
         <Route path="/register-company" element={<RegisterCompanyPage />} />
         <Route 
           path="/profile" 
@@ -40,12 +49,13 @@ const AppContent = () => {
               <ProfilePage />
             </ProtectedRoute>
           } 
-        />
-        <Route 
+        />        <Route 
           path="/make-listing" 
           element={
             <ProtectedRoute>
-              <MakeListingPage />
+              <BusinessCompletionGuard>
+                <MakeListingPage />
+              </BusinessCompletionGuard>
             </ProtectedRoute>
           } 
         />

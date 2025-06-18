@@ -363,3 +363,43 @@ export const addCompany = async (company: Omit<Company, 'id'>): Promise<string> 
   const docRef = await addDoc(collection(db, 'companies'), company);
   return docRef.id;
 };
+
+// Get company by name
+export const getCompanyByName = async (companyName: string): Promise<Company | null> => {
+  try {
+    const q = query(
+      collection(db, 'companies'),
+      where('name', '==', companyName),
+      limit(1)
+    );
+    const snapshot = await getDocs(q);
+    if (!snapshot.empty) {
+      const doc = snapshot.docs[0];
+      return { id: doc.id, ...doc.data() } as Company;
+    }
+    return null;
+  } catch (error) {
+    console.error('Error getting company by name:', error);
+    return null;
+  }
+};
+
+// Get company by user ID (assuming the company email matches user email)
+export const getCompanyByUserEmail = async (userEmail: string): Promise<Company | null> => {
+  try {
+    const q = query(
+      collection(db, 'companies'),
+      where('email', '==', userEmail),
+      limit(1)
+    );
+    const snapshot = await getDocs(q);
+    if (!snapshot.empty) {
+      const doc = snapshot.docs[0];
+      return { id: doc.id, ...doc.data() } as Company;
+    }
+    return null;
+  } catch (error) {
+    console.error('Error getting company by user email:', error);
+    return null;
+  }
+};

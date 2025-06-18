@@ -9,7 +9,9 @@ import {
   Eye,
   Mail,
   DollarSign,
-  RefreshCw
+  RefreshCw,
+  Building,
+  AlertCircle
 } from 'lucide-react';
 import { useAuth } from '../contexts/AuthContext';
 import { getUserListings, getUserInquiries, Listing, Inquiry, updateInquiry } from '../services/firestore';
@@ -36,17 +38,15 @@ const ProfilePage: React.FC = () => {
         getUserListings(user.id),
         getUserInquiries(user.id)
       ]);
-      
-      console.log('Fetched listings:', userListings.length);
+        console.log('Fetched listings:', userListings.length);
       console.log('Fetched inquiries:', userInquiries);
       console.log('Inquiries sent:', userInquiries.sent);
       console.log('Inquiries received:', userInquiries.received);
       
       setListings(userListings);
-      setInquiries(userInquiries);
-
-      // Show profile completion modal for Google users without company info
-      if (!user.company && user.name) {
+      setInquiries(userInquiries);      // Show profile completion modal for users without company info
+      // or when explicitly required by route
+      if (!user.companyDetails && user.name) {
         setShowProfileModal(true);
       }
     } catch (error) {
@@ -58,6 +58,13 @@ const ProfilePage: React.FC = () => {
   useEffect(() => {
     fetchData();
   }, [fetchData]);
+  // Check if user was redirected here for business completion
+  useEffect(() => {
+    if (location.state?.requireCompany && !user?.companyDetails) {
+      setShowProfileModal(true);
+    }
+  }, [location.state, user?.companyDetails]);
+
   // Refresh data when returning from other pages (like after creating a listing)
   useEffect(() => {
     if (location.state?.refresh) {
@@ -110,14 +117,34 @@ const ProfilePage: React.FC = () => {
       }
     };
   }, [user]);
-
   // Calculate stats from real data
   const stats = {
     totalListings: listings.length,
     totalInquiries: inquiries.sent.length + inquiries.received.length,
     inquiriesReceived: inquiries.received.length,
     inquiriesMade: inquiries.sent.length,
-    profileCompletion: user?.name && user?.company && user?.email ? 85 : 65
+    profileCompletion: (() => {
+      let completion = 0;
+      
+      // Personal info (30%)
+      if (user?.name) completion += 15;
+      if (user?.email) completion += 15;
+      
+      // Basic business info (50%)
+      if (user?.companyDetails?.name) completion += 15;
+      if (user?.companyDetails?.businessType) completion += 10;
+      if (user?.companyDetails?.email) completion += 10;
+      if (user?.companyDetails?.telephone) completion += 8;
+      if (user?.companyDetails?.address) completion += 7;
+      
+      // Optional business info (20%)
+      if (user?.companyDetails?.description) completion += 7;
+      if (user?.companyDetails?.website) completion += 6;
+      if (user?.companyDetails?.registrationNumber) completion += 4;
+      if (user?.companyDetails?.operatingSince) completion += 3;
+      
+      return Math.min(completion, 100);
+    })()
   };
 
   if (loading) {
@@ -133,9 +160,9 @@ const ProfilePage: React.FC = () => {
       </div>
     );
   }
-
   const tabs = [
     { id: 'overview', label: 'Overview', icon: TrendingUp },
+    { id: 'business', label: 'Business Profile', icon: Building },
     { id: 'listings', label: 'My Listings', icon: Package },
     { id: 'inquiries-received', label: 'Inquiries Received', icon: MessageSquare },
     { id: 'inquiries-made', label: 'Inquiries Made', icon: Mail }
@@ -175,31 +202,95 @@ const ProfilePage: React.FC = () => {
 
   return (
     <div className="min-h-screen bg-gray-50 py-8">
-      <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
-        {/* Header */}
+      <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">        {/* Header */}
         <div className="bg-white rounded-xl shadow-sm border border-gray-200 p-6 mb-8">
-          <div className="flex items-center justify-between">
-            <div className="flex items-center space-x-4">
-              <div className="bg-primary-100 w-16 h-16 rounded-full flex items-center justify-center">
-                <User className="h-8 w-8 text-primary-600" />
+          <div className="flex items-start justify-between">
+            <div className="flex items-start space-x-6">
+              <div className="bg-primary-100 w-20 h-20 rounded-full flex items-center justify-center">
+                <User className="h-10 w-10 text-primary-600" />
               </div>
-              <div>
-                <h1 className="text-2xl font-bold text-gray-900">{user?.name}</h1>
-                <p className="text-gray-600">{user?.company}</p>
-                <p className="text-sm text-gray-500">{user?.email}</p>
+              
+              {/* Personal Information */}
+              <div className="flex-1">
+                <h1 className="text-2xl font-bold text-gray-900 mb-1">{user?.name}</h1>
+                <p className="text-gray-600 mb-3">{user?.email}</p>
+                  {/* Business Information */}
+                <div className="bg-gray-50 rounded-lg p-4 mb-4">
+                  <div className="flex items-center justify-between mb-3">
+                    <h3 className="text-lg font-semibold text-gray-900 flex items-center">
+                      <Building className="h-5 w-5 mr-2 text-primary-600" />
+                      Business Information
+                    </h3>
+                    <button
+                      onClick={() => setShowProfileModal(true)}
+                      className="btn-outline text-sm py-1 px-3"
+                    >
+                      {user?.companyDetails ? 'Edit' : 'Add Business Info'}
+                    </button>
+                  </div>
+                  
+                  <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                    <div>
+                      <p className="text-sm font-medium text-gray-700">Company Name</p>
+                      <p className="text-gray-900">
+                        {user?.companyDetails?.name || user?.company || <span className="text-gray-500 italic">Not provided</span>}
+                      </p>
+                    </div>
+                    <div>
+                      <p className="text-sm font-medium text-gray-700">Business Type</p>
+                      <p className="text-gray-900">
+                        {user?.companyDetails?.businessType || <span className="text-gray-500 italic">Not provided</span>}
+                      </p>
+                    </div>
+                    {user?.companyDetails?.telephone && (
+                      <div>
+                        <p className="text-sm font-medium text-gray-700">Telephone</p>
+                        <p className="text-gray-900">{user.companyDetails.telephone}</p>
+                      </div>
+                    )}
+                    <div>
+                      <p className="text-sm font-medium text-gray-700">Subscription Plan</p>
+                      <span className={`inline-flex px-2 py-1 text-xs font-medium rounded-full ${
+                        user?.plan === 'premium' 
+                          ? 'bg-purple-100 text-purple-800' 
+                          : 'bg-gray-100 text-gray-800'
+                      }`}>
+                        {user?.plan ? user.plan.charAt(0).toUpperCase() + user.plan.slice(1) : 'Free'}
+                      </span>
+                    </div>
+                  </div>
+                  
+                  {!user?.companyDetails && (
+                    <div className="mt-3 p-3 bg-amber-50 border border-amber-200 rounded-md">
+                      <div className="flex items-center">
+                        <AlertCircle className="h-5 w-5 text-amber-400 mr-2" />
+                        <p className="text-sm text-amber-700">
+                          Complete your business information to access all features and improve your visibility.
+                        </p>
+                      </div>
+                    </div>
+                  )}
+                </div>
               </div>
             </div>
-            <div className="text-right">
+            
+            {/* Profile Completion */}
+            <div className="text-right ml-6">
               <div className="flex items-center space-x-2 mb-2">
                 <span className="text-sm font-medium text-gray-700">Profile Completion</span>
                 <span className="text-sm font-bold text-primary-600">{stats.profileCompletion}%</span>
               </div>
-              <div className="w-32 bg-gray-200 rounded-full h-2">
+              <div className="w-32 bg-gray-200 rounded-full h-2 mb-3">
                 <div 
-                  className="bg-primary-600 h-2 rounded-full" 
+                  className="bg-primary-600 h-2 rounded-full transition-all duration-300" 
                   style={{ width: `${stats.profileCompletion}%` }}
                 ></div>
-              </div>
+              </div>              <button
+                onClick={() => setShowProfileModal(true)}
+                className="btn-primary text-sm py-2 px-4 w-full"
+              >
+                {user?.companyDetails ? 'Edit Profile' : 'Complete Profile'}
+              </button>
             </div>
           </div>
         </div>
@@ -547,12 +638,205 @@ const ProfilePage: React.FC = () => {
                 )}
               </div>
             </div>
+          )}{activeTab === 'business' && (
+            <div className="p-6">
+              <div className="flex justify-between items-center mb-6">
+                <h3 className="text-lg font-semibold text-gray-900">Business Profile</h3>
+                <button
+                  onClick={() => setShowProfileModal(true)}
+                  className="btn-primary flex items-center space-x-2"
+                >
+                  <User className="h-4 w-4" />
+                  <span>Edit Profile</span>
+                </button>
+              </div>
+              
+              <div className="space-y-6">
+                {/* Personal Information Section */}
+                <div className="bg-gray-50 rounded-lg p-6">
+                  <h4 className="text-md font-semibold text-gray-900 mb-4 flex items-center">
+                    <User className="h-5 w-5 mr-2 text-primary-600" />
+                    Personal Information
+                  </h4>
+                  <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                    <div>
+                      <label className="block text-sm font-medium text-gray-700 mb-1">Full Name</label>
+                      <p className="text-gray-900 bg-white rounded-md px-3 py-2 border">
+                        {user?.name || 'Not provided'}
+                      </p>
+                    </div>
+                    <div>
+                      <label className="block text-sm font-medium text-gray-700 mb-1">Email Address</label>
+                      <p className="text-gray-900 bg-white rounded-md px-3 py-2 border">
+                        {user?.email || 'Not provided'}
+                      </p>
+                    </div>
+                  </div>
+                </div>                {/* Business Information Section */}
+                <div className="bg-gray-50 rounded-lg p-6">
+                  <h4 className="text-md font-semibold text-gray-900 mb-4 flex items-center">
+                    <Building className="h-5 w-5 mr-2 text-primary-600" />
+                    Business Information
+                  </h4>
+                  
+                  {user?.companyDetails ? (
+                    <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                      <div>
+                        <label className="block text-sm font-medium text-gray-700 mb-1">Company Name</label>
+                        <p className="text-gray-900 bg-white rounded-md px-3 py-2 border">
+                          {user.companyDetails.name}
+                        </p>
+                      </div>
+                      <div>
+                        <label className="block text-sm font-medium text-gray-700 mb-1">Business Type</label>
+                        <p className="text-gray-900 bg-white rounded-md px-3 py-2 border">
+                          {user.companyDetails.businessType}
+                        </p>
+                      </div>
+                      <div>
+                        <label className="block text-sm font-medium text-gray-700 mb-1">Email</label>
+                        <p className="text-gray-900 bg-white rounded-md px-3 py-2 border">
+                          {user.companyDetails.email}
+                        </p>
+                      </div>
+                      <div>
+                        <label className="block text-sm font-medium text-gray-700 mb-1">Telephone</label>
+                        <p className="text-gray-900 bg-white rounded-md px-3 py-2 border">
+                          {user.companyDetails.telephone}
+                        </p>
+                      </div>
+                      <div className="md:col-span-2">
+                        <label className="block text-sm font-medium text-gray-700 mb-1">Address</label>
+                        <p className="text-gray-900 bg-white rounded-md px-3 py-2 border">
+                          {user.companyDetails.address}
+                        </p>
+                      </div>
+                      {user.companyDetails.description && (
+                        <div className="md:col-span-2">
+                          <label className="block text-sm font-medium text-gray-700 mb-1">Description</label>
+                          <p className="text-gray-900 bg-white rounded-md px-3 py-2 border">
+                            {user.companyDetails.description}
+                          </p>
+                        </div>
+                      )}
+                      {user.companyDetails.website && (
+                        <div>
+                          <label className="block text-sm font-medium text-gray-700 mb-1">Website</label>
+                          <p className="text-gray-900 bg-white rounded-md px-3 py-2 border">
+                            <a 
+                              href={user.companyDetails.website.startsWith('http') ? user.companyDetails.website : `https://${user.companyDetails.website}`}
+                              target="_blank"
+                              rel="noopener noreferrer"
+                              className="text-primary-600 hover:text-primary-700"
+                            >
+                              {user.companyDetails.website}
+                            </a>
+                          </p>
+                        </div>
+                      )}
+                      {user.companyDetails.registrationNumber && (
+                        <div>
+                          <label className="block text-sm font-medium text-gray-700 mb-1">Registration Number</label>
+                          <p className="text-gray-900 bg-white rounded-md px-3 py-2 border">
+                            {user.companyDetails.registrationNumber}
+                          </p>
+                        </div>
+                      )}
+                      {user.companyDetails.operatingSince && (
+                        <div>
+                          <label className="block text-sm font-medium text-gray-700 mb-1">Operating Since</label>
+                          <p className="text-gray-900 bg-white rounded-md px-3 py-2 border">
+                            {user.companyDetails.operatingSince}
+                          </p>
+                        </div>
+                      )}
+                      <div>
+                        <label className="block text-sm font-medium text-gray-700 mb-1">Subscription Plan</label>
+                        <div className="bg-white rounded-md px-3 py-2 border">
+                          <span className={`inline-flex px-2 py-1 text-xs font-medium rounded-full ${
+                            user?.plan === 'premium' 
+                              ? 'bg-purple-100 text-purple-800' 
+                              : 'bg-gray-100 text-gray-800'
+                          }`}>
+                            {user?.plan ? user.plan.charAt(0).toUpperCase() + user.plan.slice(1) : 'Free'}
+                          </span>
+                        </div>
+                      </div>
+                    </div>
+                  ) : (
+                    <div className="text-center py-8">
+                      <Building className="h-12 w-12 text-gray-400 mx-auto mb-4" />
+                      <h5 className="text-lg font-medium text-gray-900 mb-2">No Business Information</h5>
+                      <p className="text-gray-500 mb-4">
+                        Complete your business profile to access all features and improve your visibility.
+                      </p>
+                      <button
+                        onClick={() => setShowProfileModal(true)}
+                        className="btn-primary"
+                      >
+                        Add Business Information
+                      </button>
+                    </div>
+                  )}
+                </div>
+
+                {/* Account Statistics */}
+                <div className="bg-gray-50 rounded-lg p-6">
+                  <h4 className="text-md font-semibold text-gray-900 mb-4 flex items-center">
+                    <TrendingUp className="h-5 w-5 mr-2 text-primary-600" />
+                    Account Statistics
+                  </h4>
+                  <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
+                    <div className="text-center">
+                      <div className="text-2xl font-bold text-primary-600">{stats.totalListings}</div>
+                      <div className="text-sm text-gray-600">Total Listings</div>
+                    </div>
+                    <div className="text-center">
+                      <div className="text-2xl font-bold text-blue-600">{stats.inquiriesReceived}</div>
+                      <div className="text-sm text-gray-600">Inquiries Received</div>
+                    </div>
+                    <div className="text-center">
+                      <div className="text-2xl font-bold text-green-600">{stats.inquiriesMade}</div>
+                      <div className="text-sm text-gray-600">Inquiries Made</div>
+                    </div>
+                    <div className="text-center">
+                      <div className="text-2xl font-bold text-purple-600">{stats.profileCompletion}%</div>
+                      <div className="text-sm text-gray-600">Profile Complete</div>
+                    </div>
+                  </div>
+                </div>                {/* Profile Completion Tips */}
+                {(!user?.companyDetails || stats.profileCompletion < 100) && (
+                  <div className="bg-amber-50 border border-amber-200 rounded-lg p-6">
+                    <h4 className="text-md font-semibold text-amber-900 mb-3 flex items-center">
+                      <AlertCircle className="h-5 w-5 mr-2 text-amber-600" />
+                      Complete Your Profile
+                    </h4>
+                    <p className="text-amber-800 mb-4">
+                      A complete profile helps you connect better with other businesses and increases your visibility.
+                    </p>
+                    <ul className="text-sm text-amber-700 space-y-1 mb-4">
+                      {!user?.name && <li>• Add your full name</li>}
+                      {!user?.companyDetails && <li>• Add your complete business information</li>}
+                      {user?.companyDetails && !user?.companyDetails.description && <li>• Add a business description</li>}
+                      {user?.companyDetails && !user?.companyDetails.website && <li>• Add your company website</li>}
+                      <li>• Create your first listing to showcase your services</li>
+                    </ul>
+                    <button
+                      onClick={() => setShowProfileModal(true)}
+                      className="btn-primary text-sm"
+                    >
+                      Complete Profile Now
+                    </button>
+                  </div>
+                )}
+              </div>
+            </div>
           )}
-        </div>        {/* Profile Completion Modal */}
-        {showProfileModal && (
+        </div>        {/* Profile Completion Modal */}        {showProfileModal && (
           <ProfileCompletionModal
             isOpen={showProfileModal}
             onClose={() => setShowProfileModal(false)}
+            required={!!location.state?.requireCompany}
           />
         )}
 

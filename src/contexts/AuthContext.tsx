@@ -16,6 +16,18 @@ interface User {
   name: string;
   company: string;
   plan: 'free' | 'premium';
+  companyDetails?: {
+    name: string;
+    email: string;
+    telephone: string;
+    address: string;
+    description?: string;
+    logoUrl?: string;
+    businessType: string;
+    registrationNumber?: string;
+    operatingSince?: string;
+    website?: string;
+  };
 }
 
 interface AuthContextType {
@@ -24,6 +36,17 @@ interface AuthContextType {
   loginWithGoogle: () => Promise<void>;
   register: (email: string, password: string, name: string, company: string) => Promise<void>;
   updateProfile: (updates: Partial<Pick<User, 'name' | 'company'>>) => Promise<void>;
+  createOrUpdateCompany: (companyData: {
+    name: string;
+    email: string;
+    telephone: string;
+    address: string;
+    description?: string;
+    businessType: string;
+    registrationNumber?: string;
+    operatingSince?: string;
+    website?: string;
+  }) => Promise<void>;
   logout: () => Promise<void>;
   isAuthenticated: boolean;
   loading: boolean;
@@ -42,19 +65,41 @@ export const useAuth = () => {
 export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children }) => {
   const [user, setUser] = useState<User | null>(null);
   const [loading, setLoading] = useState(true);
-
   // Function to get user data from Firestore
   const getUserData = async (firebaseUser: FirebaseUser): Promise<User | null> => {
     try {
       const userDoc = await getDoc(doc(db, 'users', firebaseUser.uid));
       if (userDoc.exists()) {
         const userData = userDoc.data();
+        
+        // Fetch company details if user has a company
+        let companyDetails = undefined;
+        if (userData.company && userData.company.trim()) {
+          const { getCompanyByName } = await import('../services/firestore');
+          const company = await getCompanyByName(userData.company);
+          if (company) {
+            companyDetails = {
+              name: company.name,
+              email: company.email,
+              telephone: company.telephone,
+              address: company.address,
+              description: company.description,
+              logoUrl: company.logoUrl,
+              businessType: company.businessType,
+              registrationNumber: company.registrationNumber,
+              operatingSince: company.operatingSince,
+              website: company.website,
+            };
+          }
+        }
+        
         return {
           id: firebaseUser.uid,
           email: firebaseUser.email || '',
           name: userData.name || '',
           company: userData.company || '',
-          plan: userData.plan || 'free'
+          plan: userData.plan || 'free',
+          companyDetails
         };
       }
       return null;
@@ -225,6 +270,50 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
       throw error;
     }
   };
+  const createOrUpdateCompany = async (companyData: {
+    name: string;
+    email: string;
+    telephone: string;
+    address: string;
+    description?: string;
+    businessType: string;
+    registrationNumber?: string;
+    operatingSince?: string;
+    website?: string;
+  }): Promise<void> => {
+    if (!user) {
+      throw new Error('No user is currently signed in');
+    }
+
+    try {
+      const { addCompany, getCompanyByName } = await import('../services/firestore');
+      
+      // Check if company already exists by name
+      const existingCompany = await getCompanyByName(companyData.name);
+      
+      if (!existingCompany) {
+        // Create company in companies collection
+        await addCompany({
+          ...companyData,
+          // Add any additional fields needed
+        });
+      }
+
+      // Update user profile with company name
+      await updateProfile({ company: companyData.name });
+      
+      // Refresh user data to include company details
+      if (auth.currentUser) {
+        const refreshedUserData = await getUserData(auth.currentUser);
+        if (refreshedUserData) {
+          setUser(refreshedUserData);
+        }
+      }
+    } catch (error) {
+      console.error('Error creating/updating company:', error);
+      throw error;
+    }
+  };
 
   const value = {
     user,
@@ -233,6 +322,7 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
     logout,
     loginWithGoogle,
     updateProfile,
+    createOrUpdateCompany,
     isAuthenticated: !!user,
     loading
   };

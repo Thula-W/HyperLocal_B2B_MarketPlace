@@ -4,10 +4,11 @@ import { useAuth } from '../contexts/AuthContext';
 
 interface ProtectedRouteProps {
   children: React.ReactNode;
+  requireCompany?: boolean; // New prop to control company requirement
 }
 
-const ProtectedRoute: React.FC<ProtectedRouteProps> = ({ children }) => {
-  const { isAuthenticated, loading } = useAuth();
+const ProtectedRoute: React.FC<ProtectedRouteProps> = ({ children, requireCompany = false }) => {
+  const { isAuthenticated, loading, user } = useAuth();
   const location = useLocation();
 
   if (loading) {
@@ -21,6 +22,11 @@ const ProtectedRoute: React.FC<ProtectedRouteProps> = ({ children }) => {
   if (!isAuthenticated) {
     // Redirect to sign in page with return url
     return <Navigate to="/signin" state={{ from: location }} replace />;
+  }
+  // Check if company information is required and missing
+  if (requireCompany && user && !user.companyDetails) {
+    // Redirect to profile page for business completion
+    return <Navigate to="/profile" state={{ requireCompany: true, from: location }} replace />;
   }
 
   return <>{children}</>;
