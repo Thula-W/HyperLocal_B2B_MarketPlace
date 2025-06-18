@@ -166,11 +166,13 @@ const CatalogPage: React.FC = () => {
         fromUserId: user.id,
         fromUserEmail: user.email,
         fromUserName: user.name,
-        fromUserCompany: user.company || '',
+        fromUserCompany: user.company || "",
         toUserId: selectedListing.userId,
         toUserEmail: selectedListing.userEmail,
+        toUserName: selectedListing.userName,
+        toUserCompany: selectedListing.userCompany || "",
         message: inquiryMessage,
-        status: 'pending'
+        status: "pending",
       });
       
       setShowInquiryModal(false);

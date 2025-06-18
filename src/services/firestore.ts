@@ -8,7 +8,10 @@ import {
   deleteDoc, 
   query, 
   where, 
-  limit 
+  limit, 
+  onSnapshot,
+  serverTimestamp,
+  orderBy,
 } from 'firebase/firestore';
 import { db } from '../firebase/firebase';
 
@@ -40,10 +43,19 @@ export interface Inquiry {
   fromUserCompany: string;
   toUserId: string;
   toUserEmail: string;
+  toUserName: string;
+  toUserCompany: string;
   message: string;
-  status: 'pending' | 'responded' | 'closed';
+  status: "pending" | "accepted" | "rejected";
   createdAt: string;
   respondedAt?: string;
+}
+
+export interface ChatMessage {
+  id: string;
+  text: string;
+  senderId: string;
+  createdAt: string;
 }
 
 // Listings functions
@@ -259,7 +271,7 @@ export const updateInquiry = async (inquiryId: string, updates: Partial<Inquiry>
     const inquiryRef = doc(db, 'inquiries', inquiryId);
     const updateData = { ...updates };
     
-    if (updates.status === 'responded') {
+    if (updates.status === 'accepted' || updates.status === 'rejected') {
       updateData.respondedAt = new Date().toISOString();
     }
     
@@ -268,4 +280,51 @@ export const updateInquiry = async (inquiryId: string, updates: Partial<Inquiry>
     console.error('Error updating inquiry:', error);
     throw error;
   }
+};
+
+// Get or create a chat for an inquiry
+export const getOrCreateChatId = async (inquiry: Inquiry): Promise<string> => {
+  const chatsRef = collection(db, "chats");
+  const q = query(chatsRef, where("inquiryId", "==", inquiry.id));
+  const snapshot = await getDocs(q);
+  if (!snapshot.empty) {
+    return snapshot.docs[0].id;
+  }
+  const chatDoc = await addDoc(chatsRef, {
+    inquiryId: inquiry.id,
+    participants: [inquiry.fromUserId, inquiry.toUserId],
+    createdAt: serverTimestamp(),
+  });
+  return chatDoc.id;
+};
+
+// Listen to chat messages in real-time
+export const listenToChatMessages = (
+  chatId: string,
+  callback: (messages: ChatMessage[]) => void
+) => {
+  const messagesRef = collection(db, "chats", chatId, "messages");
+  const q = query(messagesRef, orderBy("createdAt", "asc"));
+  return onSnapshot(q, (snapshot) => {
+    callback(
+      snapshot.docs.map((doc) => ({
+        id: doc.id,
+        ...doc.data(),
+      })) as ChatMessage[]
+    );
+  });
+};
+
+// Send a message to a chat
+export const sendChatMessage = async (
+  chatId: string,
+  text: string,
+  senderId: string
+) => {
+  const messagesRef = collection(db, "chats", chatId, "messages");
+  await addDoc(messagesRef, {
+    text,
+    senderId,
+    createdAt: serverTimestamp(),
+  });
 };

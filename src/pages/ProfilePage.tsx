@@ -12,8 +12,9 @@ import {
   RefreshCw
 } from 'lucide-react';
 import { useAuth } from '../contexts/AuthContext';
-import { getUserListings, getUserInquiries, Listing, Inquiry } from '../services/firestore';
+import { getUserListings, getUserInquiries, Listing, Inquiry, updateInquiry } from '../services/firestore';
 import ProfileCompletionModal from '../components/ProfileCompletionModal';
+import { InquiryChat } from '../components/InquiryChat';
 
 const ProfilePage: React.FC = () => {
   const { user } = useAuth();
@@ -21,7 +22,10 @@ const ProfilePage: React.FC = () => {
   const [activeTab, setActiveTab] = useState('overview');
   const [listings, setListings] = useState<Listing[]>([]);
   const [inquiries, setInquiries] = useState<{ sent: Inquiry[], received: Inquiry[] }>({ sent: [], received: [] });  const [loading, setLoading] = useState(true);
-  const [showProfileModal, setShowProfileModal] = useState(false);  const fetchData = useCallback(async () => {
+  const [showProfileModal, setShowProfileModal] = useState(false);  
+  const [openChatInquiry, setOpenChatInquiry] = useState<Inquiry | null>(null);
+
+  const fetchData = useCallback(async () => {
     if (!user) return;
     
     console.log('Fetching profile data for user:', user.id);
@@ -164,6 +168,31 @@ const ProfilePage: React.FC = () => {
     { id: 'inquiries-received', label: 'Inquiries Received', icon: MessageSquare },
     { id: 'inquiries-made', label: 'Inquiries Made', icon: Mail }
   ];
+
+  // Accept inquiry: set status to "accepted"
+  const handleAccept = async (inquiryId: string) => {
+    try {
+      await updateInquiry(inquiryId, { status: "accepted" });
+      // Optionally refresh inquiries here
+    } catch (error) {
+      console.error("Failed to accept inquiry:", error);
+    }
+  };
+
+  // Reject inquiry: set status to "rejected"
+  const handleReject = async (inquiryId: string) => {
+    try {
+      await updateInquiry(inquiryId, { status: "rejected" });
+      // Optionally refresh inquiries here
+    } catch (error) {
+      console.error("Failed to reject inquiry:", error);
+    }
+  };
+
+  // Open chat: set the inquiry to open in chat modal
+  const handleOpenChat = (inquiry: Inquiry) => {
+    setOpenChatInquiry(inquiry);
+  };
 
   return (
     <div className="min-h-screen bg-gray-50 py-8">
@@ -329,7 +358,7 @@ const ProfilePage: React.FC = () => {
                 </div>
               )}
             </div>
-          )}          {activeTab === 'listings' && (
+          )}{activeTab === 'listings' && (
             <div className="p-6">
               <div className="flex justify-between items-center mb-6">
                 <h3 className="text-lg font-semibold text-gray-900">My Listings</h3>
@@ -431,7 +460,9 @@ const ProfilePage: React.FC = () => {
                       </div>
                       <span className={`px-2 py-1 rounded-full text-xs font-medium ${
                         inquiry.status === 'pending' ? 'bg-yellow-100 text-yellow-800' :
-                        inquiry.status === 'responded' ? 'bg-green-100 text-green-800' :
+                        // inquiry.status === 'responded' ? 'bg-green-100 text-green-800' :
+                        inquiry.status === 'accepted' ? 'bg-blue-100 text-blue-800' :
+                        inquiry.status === 'rejected' ? 'bg-red-100 text-red-800' :
                         'bg-gray-100 text-gray-800'
                       }`}>
                         {inquiry.status}
@@ -442,6 +473,34 @@ const ProfilePage: React.FC = () => {
                     <p className="text-xs text-gray-500">
                       {new Date(inquiry.createdAt).toLocaleDateString()}
                     </p>
+                    {/* Action buttons */}
+                    {inquiry.status === "pending" && (
+                      <div className="flex gap-2 mt-4">
+                        <button
+                          className="px-3 py-1 bg-blue-600 text-white rounded hover:bg-blue-700"
+                          onClick={() => handleAccept(inquiry.id!)}
+                        >
+                          Accept
+                        </button>
+                        <button
+                          className="px-3 py-1 bg-red-600 text-white rounded hover:bg-red-700"
+                          onClick={() => handleReject(inquiry.id!)}
+                        >
+                          Reject
+                        </button>
+                      </div>
+                    )}
+                    {/* Chat icon if accepted */}
+                    {inquiry.status === "accepted" && (
+                      <button
+                        className="mt-4 text-blue-600 hover:text-blue-800 flex items-center"
+                        onClick={() => handleOpenChat(inquiry)}
+                        title="Open Chat"
+                      >
+                        <MessageSquare className="h-5 w-5 mr-1" />
+                        Chat
+                      </button>
+                    )}
                   </div>
                 )) : (
                   <div className="text-center py-8">
@@ -466,7 +525,9 @@ const ProfilePage: React.FC = () => {
                       </div>
                       <span className={`px-2 py-1 rounded-full text-xs font-medium ${
                         inquiry.status === 'pending' ? 'bg-yellow-100 text-yellow-800' :
-                        inquiry.status === 'responded' ? 'bg-green-100 text-green-800' :
+                        inquiry.status === 'accepted' ? 'bg-blue-100 text-blue-800' :
+                        inquiry.status === 'rejected' ? 'bg-red-100 text-red-800' :
+                        // inquiry.status === 'responded' ? 'bg-green-100 text-green-800' :
                         'bg-gray-100 text-gray-800'
                       }`}>
                         {inquiry.status}
@@ -477,6 +538,16 @@ const ProfilePage: React.FC = () => {
                     <p className="text-xs text-gray-500">
                       {new Date(inquiry.createdAt).toLocaleDateString()}
                     </p>
+                    {inquiry.status === "accepted" && (
+                      <button
+                        className="mt-4 text-blue-600 hover:text-blue-800 flex items-center"
+                        onClick={() => handleOpenChat(inquiry)}
+                        title="Open Chat"
+                      >
+                        <MessageSquare className="h-5 w-5 mr-1" />
+                        Chat
+                      </button>
+                    )}
                   </div>
                 )) : (
                   <div className="text-center py-8">
@@ -495,6 +566,15 @@ const ProfilePage: React.FC = () => {
         isOpen={showProfileModal}
         onClose={() => setShowProfileModal(false)}
       />
+        )}
+
+        {/* Inquiry Chat Modal */}
+        {openChatInquiry && user && (
+          <InquiryChat
+            inquiry={openChatInquiry}
+            currentUserId={user.id}
+            onClose={() => setOpenChatInquiry(null)}
+          />
         )}
       </div>
     </div>
