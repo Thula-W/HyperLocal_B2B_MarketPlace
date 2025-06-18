@@ -58,6 +58,20 @@ export interface ChatMessage {
   createdAt: string;
 }
 
+export interface Company {
+  id?: string;
+  name: string;
+  email: string;
+  telephone: string;
+  address: string;
+  description?: string;
+  logoUrl?: string;
+  businessType: string;
+  registrationNumber?: string;
+  operatingSince?: string;
+  website?: string;
+}
+
 // Listings functions
 export const createListing = async (listing: Omit<Listing, 'id' | 'createdAt' | 'updatedAt'>): Promise<string> => {
   try {
@@ -327,4 +341,21 @@ export const sendChatMessage = async (
     senderId,
     createdAt: serverTimestamp(),
   });
+};
+
+// Fetch companies by name prefix (for autocomplete)
+export const fetchCompaniesByPrefix = async (prefix: string): Promise<Company[]> => {
+  const q = query(
+    collection(db, 'companies'),
+    where('name', '>=', prefix),
+    where('name', '<=', prefix + '\uf8ff')
+  );
+  const snapshot = await getDocs(q);
+  return snapshot.docs.map(doc => ({ id: doc.id, ...doc.data() } as Company));
+};
+
+// Add a new company
+export const addCompany = async (company: Omit<Company, 'id'>): Promise<string> => {
+  const docRef = await addDoc(collection(db, 'companies'), company);
+  return docRef.id;
 };
