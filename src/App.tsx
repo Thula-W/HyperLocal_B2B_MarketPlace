@@ -9,6 +9,7 @@ import ProfilePage from './pages/ProfilePage';
 import MakeListingPage from './pages/MakeListingPage';
 import PricingPage from './pages/PricingPage';
 import CatalogPage from './pages/CatalogPage';
+import RegisterCompanyPage from './pages/RegisterCompanyPage';
 
 const LoadingSpinner = () => (
   <div className="min-h-screen bg-gray-50 flex items-center justify-center">
@@ -31,6 +32,7 @@ const AppContent = () => {
         <Route path="/register" element={<RegisterPage />} />
         <Route path="/pricing" element={<PricingPage />} />
         <Route path="/catalog" element={<CatalogPage />} />
+        <Route path="/register-company" element={<RegisterCompanyPage />} />
         <Route 
           path="/profile" 
           element={

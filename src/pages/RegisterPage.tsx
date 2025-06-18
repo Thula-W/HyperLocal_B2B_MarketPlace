@@ -2,6 +2,7 @@ import React, { useState } from 'react';
 import { useNavigate, Link } from 'react-router-dom';
 import { Building2, Mail, Lock, User, Building, AlertCircle } from 'lucide-react';
 import { useAuth } from '../contexts/AuthContext';
+import { fetchCompaniesByPrefix } from '../services/firestore';
 
 const RegisterPage: React.FC = () => {
   const [formData, setFormData] = useState({
@@ -13,6 +14,8 @@ const RegisterPage: React.FC = () => {
   });  const [error, setError] = useState('');
   const [loading, setLoading] = useState(false);
   const [googleLoading, setGoogleLoading] = useState(false);
+  const [companySuggestions, setCompanySuggestions] = useState<{id?: string, name: string}[]>([]);
+  const [showSuggestions, setShowSuggestions] = useState(false);
   const { register, loginWithGoogle } = useAuth();
   const navigate = useNavigate();
 
@@ -24,6 +27,26 @@ const RegisterPage: React.FC = () => {
     }));
   };
 
+  // Fetch companies as user types
+  const handleCompanyInput = async (e: React.ChangeEvent<HTMLInputElement>) => {
+    handleInputChange(e);
+    const value = e.target.value;
+    if (value.length > 1) {
+      const companies = await fetchCompaniesByPrefix(value);
+      setCompanySuggestions(companies);
+      setShowSuggestions(true);
+    } else {
+      setShowSuggestions(false);
+    }
+  };
+
+  // When user selects a suggestion
+  const handleSelectCompany = (company: string) => {
+    setFormData(prev => ({ ...prev, company }));
+    setShowSuggestions(false);
+  };
+
+  // On submit, check if company exists
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     setError('');
@@ -36,6 +59,13 @@ const RegisterPage: React.FC = () => {
 
     if (formData.password.length < 6) {
       setError('Password must be at least 6 characters long');
+      return;
+    }
+
+    // Check if company is in suggestions
+    const isExisting = companySuggestions.some(c => c.name === formData.company);
+    if (!isExisting) {
+      navigate('/register-company', { state: { companyName: formData.company, userData: formData } });
       return;
     }
 
@@ -84,7 +114,7 @@ const RegisterPage: React.FC = () => {
   };
 
   return (
-    <div className="min-h-screen bg-gray-50 flex flex-col justify-center py-12 sm:px-6 lg:px-8">
+    <div className="min-h-screen bg-gradient-to-br from-primary-50 to-secondary-50 flex flex-col justify-center py-12 sm:px-6 lg:px-8">
       <div className="sm:mx-auto sm:w-full sm:max-w-md">
         <div className="flex justify-center">
           <Building2 className="h-12 w-12 text-primary-600" />
@@ -98,7 +128,7 @@ const RegisterPage: React.FC = () => {
       </div>
 
       <div className="mt-8 sm:mx-auto sm:w-full sm:max-w-md">
-        <div className="bg-white py-8 px-4 shadow sm:rounded-lg sm:px-10">
+        <div className="bg-white py-8 px-4 shadow sm:rounded-lg sm:px-10 border border-blue-400">
           <form className="space-y-6" onSubmit={handleSubmit}>
             {error && (
               <div className="bg-red-50 border border-red-200 rounded-md p-4 flex items-center">
@@ -136,12 +166,27 @@ const RegisterPage: React.FC = () => {
                   name="company"
                   type="text"
                   required
+                  autoComplete="off"
                   value={formData.company}
-                  onChange={handleInputChange}
+                  onChange={handleCompanyInput}
                   className="input-field pl-10"
                   placeholder="Enter your company name"
+                  onFocus={() => setShowSuggestions(companySuggestions.length > 0)}
                 />
                 <Building className="h-5 w-5 text-gray-400 absolute left-3 top-2.5" />
+                {showSuggestions && companySuggestions.length > 0 && (
+                  <ul className="absolute z-10 bg-white border w-full mt-1 rounded shadow max-h-40 overflow-y-auto">
+                    {companySuggestions.map((c) => (
+                      <li
+                        key={c.id || c.name}
+                        className="px-4 py-2 hover:bg-gray-100 cursor-pointer"
+                        onClick={() => handleSelectCompany(c.name)}
+                      >
+                        {c.name}
+                      </li>
+                    ))}
+                  </ul>
+                )}
               </div>
             </div>
 
