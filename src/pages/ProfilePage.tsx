@@ -389,8 +389,13 @@ const ProfilePage: React.FC = () => {
                               }`}>
                                 {listing.type}
                               </span>
-                            </div>
-                            <p className="text-gray-600 mb-2">{listing.price}</p>
+                            </div>                            <p className="text-gray-600 mb-2">{listing.price}</p>
+                            {listing.type === 'product' && listing.quantity && (
+                              <p className="text-sm text-gray-500 mb-2 flex items-center">
+                                <Package className="h-4 w-4 mr-1" />
+                                {listing.quantity} units available
+                              </p>
+                            )}
                             <p className="text-sm text-gray-500 mb-4">{listing.description}</p>
                             <div className="flex items-center space-x-4 text-sm text-gray-500">
                               <span className="flex items-center space-x-1">

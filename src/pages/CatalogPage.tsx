@@ -1,6 +1,6 @@
 import React, { useState, useEffect } from 'react';
 import { useNavigate } from 'react-router-dom';
-import { Search, Filter, MessageSquare, Building2, Star, ArrowLeft, Loader2, RefreshCw, X, Eye, Calendar } from 'lucide-react';
+import { Search, Filter, MessageSquare, Building2, Star, ArrowLeft, Loader2, RefreshCw, X, Eye, Calendar, Package } from 'lucide-react';
 import { useAuth } from '../contexts/AuthContext';
 import { getAllListings, createInquiry, incrementListingViews, Listing } from '../services/firestore';
 import { ImageGallery } from '../components/ImageDisplay';
@@ -17,6 +17,7 @@ const CatalogPage: React.FC = () => {
   const [showListingModal, setShowListingModal] = useState(false);
   const [selectedListing, setSelectedListing] = useState<Listing | null>(null);
   const [inquiryMessage, setInquiryMessage] = useState('');
+  const [requestedQuantity, setRequestedQuantity] = useState('');
   const [submittingInquiry, setSubmittingInquiry] = useState(false);
   useEffect(() => {
     if (!isAuthenticated) {
@@ -155,15 +156,21 @@ const CatalogPage: React.FC = () => {
       setShowListingModal(true);
     }
   };
-
   const submitInquiry = async () => {
     if (!selectedListing || !user || !inquiryMessage.trim()) return;
+    
+    // For products, validate quantity
+    if (selectedListing.type === 'product' && (!requestedQuantity || parseInt(requestedQuantity) <= 0)) {
+      alert('Please specify a valid quantity for this product.');
+      return;
+    }
     
     setSubmittingInquiry(true);
     try {
       await createInquiry({
         listingId: selectedListing.id!,
         listingTitle: selectedListing.title,
+        listingType: selectedListing.type,
         fromUserId: user.id,
         fromUserEmail: user.email,
         fromUserName: user.name,
@@ -173,11 +180,15 @@ const CatalogPage: React.FC = () => {
         toUserName: selectedListing.userName,
         toUserCompany: selectedListing.userCompany || "",
         message: inquiryMessage,
+        ...(selectedListing.type === 'product' && { 
+          requestedQuantity: parseInt(requestedQuantity) 
+        }),
         status: "pending",
       });
       
       setShowInquiryModal(false);
       setInquiryMessage('');
+      setRequestedQuantity('');
       setSelectedListing(null);
       alert('Inquiry sent successfully!');
     } catch (error) {
@@ -400,10 +411,16 @@ const CatalogPage: React.FC = () => {
                   <span className="text-sm text-gray-500">({listing.views || 0} views)</span>
                 </div>
 
-                <p className="text-gray-600 text-sm mb-4 line-clamp-2">{listing.description}</p>
-
-                <div className="flex items-center justify-between">
-                  <span className="text-lg font-bold text-gray-900">{listing.price}</span>
+                <p className="text-gray-600 text-sm mb-4 line-clamp-2">{listing.description}</p>                <div className="flex items-center justify-between">
+                  <div>
+                    <span className="text-lg font-bold text-gray-900">{listing.price}</span>
+                    {listing.type === 'product' && listing.quantity && (
+                      <div className="text-xs text-gray-500 flex items-center mt-1">
+                        <Package className="h-3 w-3 mr-1" />
+                        {listing.quantity} available
+                      </div>
+                    )}
+                  </div>
                   <button
                     onClick={(e) => {
                       e.stopPropagation(); // Prevent triggering the card click
@@ -496,11 +513,18 @@ const CatalogPage: React.FC = () => {
                           {selectedListing.views || 0} views
                         </div>
                       </div>
-                    </div>
-                    <div className="text-right">
+                    </div>                    <div className="text-right">
                       <div className="text-2xl font-bold text-primary-600 mb-1">{selectedListing.price}</div>
+                      {selectedListing.type === 'product' && selectedListing.quantity && (
+                        <div className="text-sm text-gray-600 mb-1">
+                          <div className="flex items-center justify-end">
+                            <Package className="h-4 w-4 mr-1" />
+                            {selectedListing.quantity} available
+                          </div>
+                        </div>
+                      )}
                       <div className="text-sm text-gray-500">
-                        <div className="flex items-center">
+                        <div className="flex items-center justify-end">
                           <Calendar className="h-4 w-4 mr-1" />
                           {new Date(selectedListing.createdAt).toLocaleDateString()}
                         </div>
@@ -597,11 +621,37 @@ const CatalogPage: React.FC = () => {
               <h3 className="text-lg font-semibold text-gray-900 mb-4">
                 Send Inquiry to {selectedListing.userCompany}
               </h3>
-              
-              <div className="mb-4">
+                <div className="mb-4">
                 <p className="text-sm text-gray-600 mb-2">Regarding:</p>
                 <p className="font-medium text-gray-900">{selectedListing.title}</p>
               </div>
+
+              {/* Quantity field for products */}
+              {selectedListing.type === 'product' && (
+                <div className="mb-4">
+                  <label className="block text-sm font-medium text-gray-700 mb-2">
+                    Quantity Required
+                  </label>
+                  <div className="relative">
+                    <input
+                      type="number"
+                      value={requestedQuantity}
+                      onChange={(e) => setRequestedQuantity(e.target.value)}
+                      className="input-field pl-10"
+                      placeholder="Enter quantity needed"
+                      min="1"
+                      max={selectedListing.quantity || 999999}
+                      required
+                    />
+                    <Package className="h-5 w-5 text-gray-400 absolute left-3 top-2.5" />
+                  </div>
+                  {selectedListing.quantity && (
+                    <p className="text-sm text-gray-500 mt-1">
+                      Available: {selectedListing.quantity} units
+                    </p>
+                  )}
+                </div>
+              )}
 
               <div className="mb-6">
                 <label className="block text-sm font-medium text-gray-700 mb-2">
@@ -615,11 +665,14 @@ const CatalogPage: React.FC = () => {
                   placeholder="Please provide details about your requirements..."
                   required
                 />
-              </div>              <div className="flex space-x-4">
-                <button
+              </div><div className="flex space-x-4">                <button
                   onClick={submitInquiry}
                   className="flex-1 btn-primary flex items-center justify-center"
-                  disabled={!inquiryMessage.trim() || submittingInquiry}
+                  disabled={
+                    !inquiryMessage.trim() || 
+                    submittingInquiry ||
+                    (selectedListing.type === 'product' && (!requestedQuantity || parseInt(requestedQuantity) <= 0))
+                  }
                 >
                   {submittingInquiry ? (
                     <>
@@ -629,11 +682,11 @@ const CatalogPage: React.FC = () => {
                   ) : (
                     'Send Inquiry'
                   )}
-                </button>
-                <button
+                </button>                <button
                   onClick={() => {
                     setShowInquiryModal(false);
                     setInquiryMessage('');
+                    setRequestedQuantity('');
                     setSelectedListing(null);
                   }}
                   className="btn-outline px-6"
