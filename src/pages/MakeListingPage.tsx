@@ -1,20 +1,21 @@
 import React, { useState } from 'react';
 import { useNavigate } from 'react-router-dom';
-import { Upload, DollarSign, Tag, FileText, CheckCircle, AlertCircle } from 'lucide-react';
+import { DollarSign, Tag, FileText, CheckCircle, AlertCircle, Package } from 'lucide-react';
 import { useAuth } from '../contexts/AuthContext';
 import { createListing } from '../services/firestore';
+import ImageUpload from '../components/ImageUpload';
 
 const MakeListingPage: React.FC = () => {
   const navigate = useNavigate();
-  const { user } = useAuth();
-  const [formData, setFormData] = useState({
+  const { user } = useAuth();  const [formData, setFormData] = useState({
     type: '',
     category: '',
     subcategory: '',
     title: '',
     price: '',
+    quantity: '', // Quantity for products
     description: '',
-    images: [] as File[]
+    images: [] as string[] // Changed to store Cloudinary URLs
   });
   const [success, setSuccess] = useState(false);
   const [loading, setLoading] = useState(false);
@@ -60,19 +61,10 @@ const MakeListingPage: React.FC = () => {
       ...(name === 'category' ? { subcategory: '' } : {})
     }));
   };
-
-  const handleImageUpload = (e: React.ChangeEvent<HTMLInputElement>) => {
-    const files = Array.from(e.target.files || []);
+  const handleImageUpload = (imageUrls: string[]) => {
     setFormData(prev => ({
       ...prev,
-      images: [...prev.images, ...files].slice(0, 5) // Limit to 5 images
-    }));
-  };
-
-  const removeImage = (index: number) => {
-    setFormData(prev => ({
-      ...prev,
-      images: prev.images.filter((_, i) => i !== index)
+      images: imageUrls
     }));
   };
   const handleSubmit = async (e: React.FormEvent) => {
@@ -84,20 +76,27 @@ const MakeListingPage: React.FC = () => {
       return;
     }
 
-    setLoading(true);
-
-    try {
-      await createListing({
+    setLoading(true);    try {      const listingData = {
         title: formData.title,
         description: formData.description,
         type: formData.type as 'product' | 'service',
         price: formData.price,
         category: `${formData.category} - ${formData.subcategory}`,
+        ...(formData.type === 'product' && formData.quantity && { 
+          quantity: parseInt(formData.quantity) 
+        }), // Include quantity only for products
+        images: formData.images, // Include Cloudinary URLs
         userId: user.id,
         userEmail: user.email,
         userName: user.name,
         userCompany: user.company,
-        status: 'active'      });      
+        status: 'active' as const
+      };
+      
+      console.log('📝 Creating listing with data:', listingData);
+      console.log('🖼️ Images being saved:', formData.images);
+      
+      await createListing(listingData);
       console.log('Listing created successfully');
       setSuccess(true);
       
@@ -133,11 +132,12 @@ const MakeListingPage: React.FC = () => {
   return (
     <div className="min-h-screen bg-gray-50 py-8">
       <div className="max-w-3xl mx-auto px-4 sm:px-6 lg:px-8">
-        <div className="bg-white rounded-xl shadow-sm border border-gray-200 p-8">
-          <div className="mb-8">
+        <div className="bg-white rounded-xl shadow-sm border border-gray-200 p-8">          <div className="mb-8">
             <h1 className="text-2xl font-bold text-gray-900">Create New Listing</h1>
             <p className="text-gray-600 mt-2">Share your products or services with local businesses</p>
-          </div>          <form onSubmit={handleSubmit} className="space-y-6">
+          </div>
+
+          <form onSubmit={handleSubmit} className="space-y-6">
             {error && (
               <div className="bg-red-50 border border-red-200 rounded-md p-4 flex items-center">
                 <AlertCircle className="h-5 w-5 text-red-400 mr-2" />
@@ -245,9 +245,7 @@ const MakeListingPage: React.FC = () => {
                 placeholder="Enter a descriptive title"
                 required
               />
-            </div>
-
-            {/* Price */}
+            </div>            {/* Price */}
             <div>
               <label htmlFor="price" className="block text-sm font-medium text-gray-700 mb-2">
                 Price
@@ -267,6 +265,32 @@ const MakeListingPage: React.FC = () => {
               </div>
             </div>
 
+            {/* Quantity - Only for products */}
+            {formData.type === 'product' && (
+              <div>
+                <label htmlFor="quantity" className="block text-sm font-medium text-gray-700 mb-2">
+                  Quantity Available
+                </label>
+                <div className="relative">
+                  <input
+                    type="number"
+                    id="quantity"
+                    name="quantity"
+                    value={formData.quantity}
+                    onChange={handleInputChange}
+                    className="input-field pl-10"
+                    placeholder="e.g., 100"
+                    min="1"
+                    required
+                  />
+                  <Package className="h-5 w-5 text-gray-400 absolute left-3 top-2.5" />
+                </div>
+                <p className="text-sm text-gray-500 mt-1">
+                  How many units do you have available for sale?
+                </p>
+              </div>
+            )}
+
             {/* Description */}
             <div>
               <label htmlFor="description" className="block text-sm font-medium text-gray-700 mb-2">
@@ -282,52 +306,17 @@ const MakeListingPage: React.FC = () => {
                 placeholder="Provide detailed information about your product or service"
                 required
               />
-            </div>
-
-            {/* Image Upload */}
+            </div>            {/* Image Upload */}
             <div>
               <label className="block text-sm font-medium text-gray-700 mb-2">
                 Images (Optional)
               </label>
-              <div className="border-2 border-dashed border-gray-300 rounded-lg p-6 text-center">
-                <Upload className="h-8 w-8 text-gray-400 mx-auto mb-2" />
-                <p className="text-sm text-gray-600 mb-2">Upload up to 5 images</p>
-                <input
-                  type="file"
-                  multiple
-                  accept="image/*"
-                  onChange={handleImageUpload}
-                  className="hidden"
-                  id="image-upload"
-                />
-                <label
-                  htmlFor="image-upload"
-                  className="btn-outline cursor-pointer"
-                >
-                  Choose Files
-                </label>
-              </div>
-              
-              {formData.images.length > 0 && (
-                <div className="mt-4 grid grid-cols-2 sm:grid-cols-3 gap-4">
-                  {formData.images.map((file, index) => (
-                    <div key={index} className="relative">
-                      <img
-                        src={URL.createObjectURL(file)}
-                        alt={`Upload ${index + 1}`}
-                        className="w-full h-24 object-cover rounded-lg"
-                      />
-                      <button
-                        type="button"
-                        onClick={() => removeImage(index)}
-                        className="absolute -top-2 -right-2 bg-red-500 text-white rounded-full w-6 h-6 flex items-center justify-center text-xs hover:bg-red-600"
-                      >
-                        ×
-                      </button>
-                    </div>
-                  ))}
-                </div>
-              )}
+              <ImageUpload
+                onImageUpload={handleImageUpload}
+                currentImages={formData.images}
+                maxImages={5}
+                disabled={loading}
+              />
             </div>
 
             {/* Submit Button */}

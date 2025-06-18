@@ -22,11 +22,13 @@ export interface Listing {
   type: 'product' | 'service';
   price: string;
   category: string;
+  quantity?: number; // Available quantity for products
   userId: string;
   userEmail: string;
   userName: string;
   userCompany: string;
   status: 'active' | 'inactive';
+  images?: string[]; // Cloudinary URLs
   createdAt: string;
   updatedAt: string;
   views?: number;
@@ -37,6 +39,7 @@ export interface Inquiry {
   id?: string;
   listingId: string;
   listingTitle: string;
+  listingType: 'product' | 'service'; // Add listing type
   fromUserId: string;
   fromUserEmail: string;
   fromUserName: string;
@@ -46,6 +49,7 @@ export interface Inquiry {
   toUserName: string;
   toUserCompany: string;
   message: string;
+  requestedQuantity?: number; // Quantity requested for products
   status: "pending" | "accepted" | "rejected";
   createdAt: string;
   respondedAt?: string;

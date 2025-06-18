@@ -15,6 +15,7 @@ import { useAuth } from '../contexts/AuthContext';
 import { getUserListings, getUserInquiries, Listing, Inquiry, updateInquiry } from '../services/firestore';
 import ProfileCompletionModal from '../components/ProfileCompletionModal';
 import { InquiryChat } from '../components/InquiryChat';
+import { ImageGallery } from '../components/ImageDisplay';
 
 const ProfilePage: React.FC = () => {
   const { user } = useAuth();
@@ -51,37 +52,8 @@ const ProfilePage: React.FC = () => {
     } catch (error) {
       console.error('Error fetching profile data:', error);
     } finally {
-      setLoading(false);
-    }
+      setLoading(false);    }
   }, [user]);
-
-  // Debug function to test direct inquiry queries
-  const testInquiryQueries = async () => {
-    if (!user) return;
-    
-    try {
-      console.log('=== DEBUGGING INQUIRY QUERIES ===');
-      const { getDocs, collection } = await import('firebase/firestore');
-      const { db } = await import('../firebase/firebase');
-      
-      // Get all inquiries to see what exists
-      const allInquiriesSnapshot = await getDocs(collection(db, 'inquiries'));
-      console.log('Total inquiries in database:', allInquiriesSnapshot.size);
-      
-      allInquiriesSnapshot.forEach((doc) => {
-        const data = doc.data();
-        console.log('Inquiry document:', doc.id, data);
-        console.log('  - From:', data.fromUserId, '| To:', data.toUserId);
-        console.log('  - Current user:', user.id);
-        console.log('  - Is current user sender?', data.fromUserId === user.id);
-        console.log('  - Is current user recipient?', data.toUserId === user.id);
-      });
-      
-      console.log('=== END INQUIRY DEBUG ===');
-    } catch (error) {
-      console.error('Debug inquiry query error:', error);
-    }
-  };
 
   useEffect(() => {
     fetchData();
@@ -168,12 +140,15 @@ const ProfilePage: React.FC = () => {
     { id: 'inquiries-received', label: 'Inquiries Received', icon: MessageSquare },
     { id: 'inquiries-made', label: 'Inquiries Made', icon: Mail }
   ];
-
   // Accept inquiry: set status to "accepted"
   const handleAccept = async (inquiryId: string) => {
     try {
       await updateInquiry(inquiryId, { status: "accepted" });
-      // Optionally refresh inquiries here
+      // Refresh inquiries to show updated status
+      if (user) {
+        const userInquiries = await getUserInquiries(user.id);
+        setInquiries(userInquiries);
+      }
     } catch (error) {
       console.error("Failed to accept inquiry:", error);
     }
@@ -183,7 +158,11 @@ const ProfilePage: React.FC = () => {
   const handleReject = async (inquiryId: string) => {
     try {
       await updateInquiry(inquiryId, { status: "rejected" });
-      // Optionally refresh inquiries here
+      // Refresh inquiries to show updated status
+      if (user) {
+        const userInquiries = await getUserInquiries(user.id);
+        setInquiries(userInquiries);
+      }
     } catch (error) {
       console.error("Failed to reject inquiry:", error);
     }
@@ -381,45 +360,57 @@ const ProfilePage: React.FC = () => {
                 </div>
               </div>
               
-              <div className="grid gap-6">
-                {listings.length > 0 ? listings.map((listing) => (
+              <div className="grid gap-6">                {listings.length > 0 ? listings.map((listing) => (
                   <div key={listing.id} className="bg-white rounded-lg border border-gray-200 p-6">
-                    <div className="flex justify-between items-start">
+                    <div className="flex gap-4">
+                      {/* Image Section */}
+                      {listing.images && listing.images.length > 0 && (
+                        <div className="w-32 h-32 flex-shrink-0">
+                          <ImageGallery
+                            images={listing.images}
+                            alt={listing.title}
+                            className="w-full h-full"
+                            imageClassName="w-full h-full object-cover rounded-lg"
+                            maxImages={1}
+                          />
+                        </div>
+                      )}
+                      
+                      {/* Content Section */}
                       <div className="flex-1">
-                        <div className="flex items-center space-x-2 mb-2">
-                          <h4 className="text-lg font-semibold text-gray-900">{listing.title}</h4>
-                          <span className={`px-2 py-1 rounded-full text-xs font-medium ${
-                            listing.type === 'service' 
-                              ? 'bg-blue-100 text-blue-800' 
-                              : 'bg-green-100 text-green-800'
-                          }`}>
-                            {listing.type}
-                          </span>
-                        </div>
-                        <p className="text-gray-600 mb-2">{listing.price}</p>
-                        <p className="text-sm text-gray-500 mb-4">{listing.description}</p>
-                        <div className="flex items-center space-x-4 text-sm text-gray-500">
-                          <span className="flex items-center space-x-1">
-                            <MessageSquare className="h-4 w-4" />
-                            <span>{listing.inquiries || 0} inquiries</span>
-                          </span>
-                          <span className="flex items-center space-x-1">
-                            <Eye className="h-4 w-4" />
-                            <span>{listing.views || 0} views</span>
-                          </span>
+                        <div className="flex justify-between items-start">
+                          <div className="flex-1">
+                            <div className="flex items-center space-x-2 mb-2">
+                              <h4 className="text-lg font-semibold text-gray-900">{listing.title}</h4>
+                              <span className={`px-2 py-1 rounded-full text-xs font-medium ${
+                                listing.type === 'service' 
+                                  ? 'bg-blue-100 text-blue-800' 
+                                  : 'bg-green-100 text-green-800'
+                              }`}>
+                                {listing.type}
+                              </span>
+                            </div>
+                            <p className="text-gray-600 mb-2">{listing.price}</p>
+                            <p className="text-sm text-gray-500 mb-4">{listing.description}</p>
+                            <div className="flex items-center space-x-4 text-sm text-gray-500">
+                              <span className="flex items-center space-x-1">
+                                <MessageSquare className="h-4 w-4" />
+                                <span>{listing.inquiries || 0} inquiries</span>
+                              </span>
+                              <span className="flex items-center space-x-1">
+                                <Eye className="h-4 w-4" />
+                                <span>{listing.views || 0} views</span>
+                              </span>
+                            </div>
+                          </div>
+                          <div className="text-right">
+                            <span className="text-sm text-gray-500">
+                              {new Date(listing.createdAt).toLocaleDateString()}
+                            </span>
+                          </div>
                         </div>
                       </div>
-                      <div className="text-right">
-                        <span className={`px-2 py-1 rounded-full text-xs font-medium ${
-                          listing.status === 'active' 
-                            ? 'bg-green-100 text-green-800' 
-                            : 'bg-gray-100 text-gray-800'
-                        }`}>
-                          {listing.status}
-                        </span>
-                      </div>
-                    </div>
-                  </div>
+                    </div>                  </div>
                 )) : (
                   <div className="text-center py-8">
                     <Package className="h-12 w-12 text-gray-400 mx-auto mb-4" />
@@ -435,19 +426,12 @@ const ProfilePage: React.FC = () => {
                 )}
               </div>
             </div>
-          )}          {activeTab === 'inquiries-received' && (
+          )}{activeTab === 'inquiries-received' && (
             <div className="p-6">              <div className="flex justify-between items-center mb-6">
                 <h3 className="text-lg font-semibold text-gray-900">Inquiries Received</h3>
-                <div className="flex space-x-2">
-                  <span className="text-sm text-gray-600">
+                <div className="flex space-x-2">                  <span className="text-sm text-gray-600">
                     Count: {inquiries.received.length}
                   </span>
-                  <button
-                    onClick={testInquiryQueries}
-                    className="btn-outline flex items-center space-x-2"
-                  >
-                    <span>Debug Inquiries</span>
-                  </button>
                 </div>
               </div>
               <div className="space-y-4">
@@ -559,13 +543,12 @@ const ProfilePage: React.FC = () => {
               </div>
             </div>
           )}
-        </div>
-
-        {/* Profile Completion Modal */}
-        {showProfileModal && (      <ProfileCompletionModal
-        isOpen={showProfileModal}
-        onClose={() => setShowProfileModal(false)}
-      />
+        </div>        {/* Profile Completion Modal */}
+        {showProfileModal && (
+          <ProfileCompletionModal
+            isOpen={showProfileModal}
+            onClose={() => setShowProfileModal(false)}
+          />
         )}
 
         {/* Inquiry Chat Modal */}

@@ -3,6 +3,7 @@ import { useNavigate } from 'react-router-dom';
 import { Search, Filter, MessageSquare, Building2, Star, ArrowLeft, Loader2, RefreshCw, X, Eye, Calendar } from 'lucide-react';
 import { useAuth } from '../contexts/AuthContext';
 import { getAllListings, createInquiry, incrementListingViews, Listing } from '../services/firestore';
+import { ImageGallery } from '../components/ImageDisplay';
 
 const CatalogPage: React.FC = () => {
   const { user, isAuthenticated } = useAuth();
@@ -346,22 +347,33 @@ const CatalogPage: React.FC = () => {
             <span className="ml-2 text-gray-600">Loading listings...</span>
           </div>
         ) : (          <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
-            {filteredListings.map((listing) => (
-              <div key={listing.id} className="card hover:shadow-lg transition-shadow cursor-pointer" onClick={() => handleListingClick(listing)}>
-                {/* Placeholder image since Firestore listings don't have images yet */}
-                <div className="w-full h-48 bg-gradient-to-br from-primary-100 to-primary-200 rounded-lg mb-4 flex items-center justify-center">
-                  <div className="text-center">
-                    <div className={`w-16 h-16 mx-auto rounded-full flex items-center justify-center mb-2 ${
-                      listing.type === 'service' ? 'bg-blue-500' : 'bg-green-500'
-                    }`}>
-                      {listing.type === 'service' ? (
-                        <MessageSquare className="h-8 w-8 text-white" />
-                      ) : (
-                        <Building2 className="h-8 w-8 text-white" />
-                      )}
+            {filteredListings.map((listing) => (              <div key={listing.id} className="card hover:shadow-lg transition-shadow cursor-pointer" onClick={() => handleListingClick(listing)}>
+                {/* Display actual images or placeholder */}
+                <div className="w-full h-48 rounded-lg mb-4 overflow-hidden">
+                  {listing.images && listing.images.length > 0 ? (
+                    <ImageGallery
+                      images={listing.images}
+                      alt={listing.title}
+                      className="w-full h-full"
+                      imageClassName="w-full h-full object-cover"
+                      maxImages={1}
+                    />
+                  ) : (
+                    <div className="w-full h-full bg-gradient-to-br from-primary-100 to-primary-200 flex items-center justify-center">
+                      <div className="text-center">
+                        <div className={`w-16 h-16 mx-auto rounded-full flex items-center justify-center mb-2 ${
+                          listing.type === 'service' ? 'bg-blue-500' : 'bg-green-500'
+                        }`}>
+                          {listing.type === 'service' ? (
+                            <MessageSquare className="h-8 w-8 text-white" />
+                          ) : (
+                            <Building2 className="h-8 w-8 text-white" />
+                          )}
+                        </div>
+                        <span className="text-sm text-gray-600">{listing.type}</span>
+                      </div>
                     </div>
-                    <span className="text-sm text-gray-600">{listing.type}</span>
-                  </div>
+                  )}
                 </div>
                 
                 <div className="flex items-start justify-between mb-2">
@@ -495,22 +507,32 @@ const CatalogPage: React.FC = () => {
                       </div>
                     </div>
                   </div>
-                </div>
-
-                {/* Listing Image Placeholder */}
-                <div className="w-full h-64 bg-gradient-to-br from-primary-100 to-primary-200 rounded-lg mb-6 flex items-center justify-center">
-                  <div className="text-center">
-                    <div className={`w-20 h-20 mx-auto rounded-full flex items-center justify-center mb-3 ${
-                      selectedListing.type === 'service' ? 'bg-blue-500' : 'bg-green-500'
-                    }`}>
-                      {selectedListing.type === 'service' ? (
-                        <MessageSquare className="h-10 w-10 text-white" />
-                      ) : (
-                        <Building2 className="h-10 w-10 text-white" />
-                      )}
+                </div>                {/* Listing Images */}
+                <div className="w-full h-64 rounded-lg mb-6 overflow-hidden">
+                  {selectedListing.images && selectedListing.images.length > 0 ? (
+                    <ImageGallery
+                      images={selectedListing.images}
+                      alt={selectedListing.title}
+                      className="w-full h-full"
+                      imageClassName="w-full h-full object-cover"
+                      maxImages={4}
+                    />
+                  ) : (
+                    <div className="w-full h-full bg-gradient-to-br from-primary-100 to-primary-200 flex items-center justify-center">
+                      <div className="text-center">
+                        <div className={`w-20 h-20 mx-auto rounded-full flex items-center justify-center mb-3 ${
+                          selectedListing.type === 'service' ? 'bg-blue-500' : 'bg-green-500'
+                        }`}>
+                          {selectedListing.type === 'service' ? (
+                            <MessageSquare className="h-10 w-10 text-white" />
+                          ) : (
+                            <Building2 className="h-10 w-10 text-white" />
+                          )}
+                        </div>
+                        <span className="text-lg text-gray-600 capitalize">{selectedListing.type}</span>
+                      </div>
                     </div>
-                    <span className="text-lg text-gray-600 capitalize">{selectedListing.type}</span>
-                  </div>
+                  )}
                 </div>
 
                 {/* Description */}
