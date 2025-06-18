@@ -39,8 +39,7 @@ const Navbar: React.FC = () => {
                 }`}
               >
                 Home
-              </Link>
-              <Link
+              </Link>              <Link
                 to="/pricing"
                 className={`px-3 py-2 rounded-md text-sm font-medium transition-colors ${
                   isActive('/pricing') 
@@ -50,6 +49,30 @@ const Navbar: React.FC = () => {
               >
                 Pricing
               </Link>
+              {isAuthenticated && (
+                <>
+                  <Link
+                    to="/catalog"
+                    className={`px-3 py-2 rounded-md text-sm font-medium transition-colors ${
+                      isActive('/catalog') 
+                        ? 'text-primary-600 bg-primary-50' 
+                        : 'text-gray-700 hover:text-primary-600'
+                    }`}
+                  >
+                    Catalog
+                  </Link>
+                  <Link
+                    to="/nearby"
+                    className={`px-3 py-2 rounded-md text-sm font-medium transition-colors ${
+                      isActive('/nearby') 
+                        ? 'text-primary-600 bg-primary-50' 
+                        : 'text-gray-700 hover:text-primary-600'
+                    }`}
+                  >
+                    Nearby
+                  </Link>
+                </>
+              )}
             </div>
           </div>
 

@@ -11,6 +11,7 @@ import MakeListingPage from './pages/MakeListingPage';
 import PricingPage from './pages/PricingPage';
 import CatalogPage from './pages/CatalogPage';
 import RegisterCompanyPage from './pages/RegisterCompanyPage';
+import NearbyBusinessesPage from './pages/NearbyBusinessesPage';
 
 const LoadingSpinner = () => (
   <div className="min-h-screen bg-gray-50 flex items-center justify-center">
@@ -30,13 +31,22 @@ const AppContent = () => {
       <Navbar />      <Routes>
         <Route path="/" element={<LandingPage />} />
         <Route path="/signin" element={<SignInPage />} />
-        <Route path="/register" element={<RegisterPage />} />        <Route path="/pricing" element={<PricingPage />} />
-        <Route 
+        <Route path="/register" element={<RegisterPage />} />        <Route path="/pricing" element={<PricingPage />} />        <Route 
           path="/catalog" 
           element={
             <ProtectedRoute>
               <BusinessCompletionGuard>
                 <CatalogPage />
+              </BusinessCompletionGuard>
+            </ProtectedRoute>
+          } 
+        />
+        <Route 
+          path="/nearby" 
+          element={
+            <ProtectedRoute>
+              <BusinessCompletionGuard>
+                <NearbyBusinessesPage />
               </BusinessCompletionGuard>
             </ProtectedRoute>
           } 
