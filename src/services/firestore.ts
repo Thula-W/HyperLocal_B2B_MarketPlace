@@ -700,3 +700,13 @@ export const getListingById = async (listingId: string): Promise<Listing | null>
     throw error;
   }
 };
+
+// Delete auction
+export const deleteAuction = async (auctionId: string): Promise<void> => {
+  try {
+    await deleteDoc(doc(db, 'auctions', auctionId));
+  } catch (error) {
+    console.error('Error deleting auction:', error);
+    throw error;
+  }
+};

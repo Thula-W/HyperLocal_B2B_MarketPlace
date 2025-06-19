@@ -13,10 +13,11 @@ import {
   Building,
   AlertCircle,
   Gavel,
-  Trophy
+  Trophy,
+  Trash2
 } from 'lucide-react';
 import { useAuth } from '../contexts/AuthContext';
-import { getUserListings, getUserInquiries, Listing, Inquiry, updateInquiry, getUserAuctions, getUserBids, AuctionListing, AuctionBid } from '../services/firestore';
+import { getUserListings, getUserInquiries, Listing, Inquiry, updateInquiry, getUserAuctions, getUserBids, AuctionListing, AuctionBid, deleteListing, deleteAuction } from '../services/firestore';
 import ProfileCompletionModal from '../components/ProfileCompletionModal';
 import { InquiryChat } from '../components/InquiryChat';
 import { ImageGallery } from '../components/ImageDisplay';
@@ -222,10 +223,45 @@ const ProfilePage: React.FC = () => {
       console.error("Failed to reject inquiry:", error);
     }
   };
-
   // Open chat: set the inquiry to open in chat modal
   const handleOpenChat = (inquiry: Inquiry) => {
     setOpenChatInquiry(inquiry);
+  };
+
+  // Delete listing
+  const handleDeleteListing = async (listingId: string, listingTitle: string) => {
+    if (window.confirm(`Are you sure you want to delete "${listingTitle}"? This action cannot be undone.`)) {
+      try {
+        await deleteListing(listingId);
+        // Refresh listings after deletion
+        if (user) {
+          const userListings = await getUserListings(user.id);
+          setListings(userListings);
+        }
+        alert('Listing deleted successfully!');
+      } catch (error) {
+        console.error('Error deleting listing:', error);
+        alert('Failed to delete listing. Please try again.');
+      }
+    }
+  };
+
+  // Delete auction
+  const handleDeleteAuction = async (auctionId: string, auctionTitle: string) => {
+    if (window.confirm(`Are you sure you want to delete the auction "${auctionTitle}"? This action cannot be undone and will affect any existing bids.`)) {
+      try {
+        await deleteAuction(auctionId);
+        // Refresh auctions after deletion
+        if (user) {
+          const userAuctionsData = await getUserAuctions(user.id);
+          setAuctions(userAuctionsData);
+        }
+        alert('Auction deleted successfully!');
+      } catch (error) {
+        console.error('Error deleting auction:', error);
+        alert('Failed to delete auction. Please try again.');
+      }
+    }
   };
 
   return (
@@ -525,12 +561,21 @@ const ProfilePage: React.FC = () => {
                                 <Eye className="h-4 w-4" />
                                 <span>{listing.views || 0} views</span>
                               </span>
-                            </div>
-                          </div>
+                            </div>                          </div>
                           <div className="text-right">
-                            <span className="text-sm text-gray-500">
+                            <span className="text-sm text-gray-500 mb-2 block">
                               {new Date(listing.createdAt).toLocaleDateString()}
                             </span>
+                            <div className="flex space-x-2">
+                              <button
+                                onClick={() => handleDeleteListing(listing.id!, listing.title)}
+                                className="btn-outline text-red-600 border-red-300 hover:bg-red-50 hover:border-red-400 text-xs px-2 py-1 flex items-center space-x-1"
+                                title="Delete listing"
+                              >
+                                <Trash2 className="h-3 w-3" />
+                                <span>Delete</span>
+                              </button>
+                            </div>
                           </div>
                         </div>
                       </div>
@@ -946,15 +991,21 @@ const ProfilePage: React.FC = () => {
                           <span className="text-gray-600">Views:</span>
                           <span className="font-medium">{auction.views || 0}</span>
                         </div>
-                      </div>
-
-                      <div className="flex space-x-2">
+                      </div>                      <div className="flex space-x-2">
                         <Link
                           to={`/auctions/${auction.id}`}
                           className="flex-1 btn-outline text-center text-sm"
                         >
                           View Details
                         </Link>
+                        <button
+                          onClick={() => handleDeleteAuction(auction.id!, auction.title)}
+                          className="btn-outline text-red-600 border-red-300 hover:bg-red-50 hover:border-red-400 text-sm px-3 py-1 flex items-center space-x-1"
+                          title="Delete auction"
+                        >
+                          <Trash2 className="h-3 w-3" />
+                          <span>Delete</span>
+                        </button>
                       </div>
                     </div>
                   ))}
