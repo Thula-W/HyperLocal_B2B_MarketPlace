@@ -230,7 +230,9 @@ const CatalogPage: React.FC = () => {
     setSelectedCategory('');
     setSelectedSubcategory('');
     setSearchTerm('');
-  };  const refreshListings = async () => {
+  };
+  const refreshListings = async () => {
+    resetFilters();
     try {
       setLoading(true);
       const fetchedListings = await getAllListings(50);

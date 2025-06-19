@@ -1,5 +1,6 @@
 import React, { useState, useEffect, useCallback } from 'react';
-import { Link, useLocation } from 'react-router-dom';
+import { Link, useLocation, useNavigate } from 'react-router-dom';
+import { useUserPlan } from '../contexts/AuthContext';
 import { 
   User, 
   Package, 
@@ -39,6 +40,8 @@ import autoTable from "jspdf-autotable";
 
 const ProfilePage: React.FC = () => {
   const { user } = useAuth();
+  const plan = useUserPlan();
+  const navigate = useNavigate();
   const location = useLocation();  const [activeTab, setActiveTab] = useState('overview');
   const [listings, setListings] = useState<Listing[]>([]);
   const [inquiries, setInquiries] = useState<{ sent: Inquiry[], received: Inquiry[] }>({ sent: [], received: [] });
@@ -48,6 +51,7 @@ const ProfilePage: React.FC = () => {
   const [showProfileModal, setShowProfileModal] = useState(false);  
   const [openChatInquiry, setOpenChatInquiry] = useState<Inquiry | null>(null);
   const [transactions, setTransactions] = useState<Inquiry[]>([]);
+  const [showPremiumModal, setShowPremiumModal] = useState(false);
 
   // Helper function to format price with dollar sign
   const formatPrice = (price: string) => {
@@ -291,6 +295,10 @@ const ProfilePage: React.FC = () => {
   };
 
   const downloadPDF = () => {
+    if (plan === 'free') {
+      setShowPremiumModal(true);
+      return;
+    }
     const doc = new jsPDF();
     doc.text("Company Transactions Report", 14, 16);
     doc.setFontSize(10);
@@ -322,13 +330,13 @@ const ProfilePage: React.FC = () => {
         {/* Header */}
         <div className="bg-white rounded-xl shadow-sm border border-gray-200 p-6 mb-8">
           <div className="flex items-start justify-between">
-            <div className="flex items-start space-x-6">
+            <div className="flex items-start space-x-6 flex-1 min-w-0">
               <div className="bg-primary-100 w-20 h-20 rounded-full flex items-center justify-center">
                 <User className="h-10 w-10 text-primary-600" />
               </div>
 
               {/* Personal Information */}
-              <div className="flex-1">
+              <div className="flex-1 min-w-0 max-w-3xl">
                 <h1 className="text-2xl font-bold text-gray-900 mb-1">
                   {user?.name}
                 </h1>
@@ -418,7 +426,7 @@ const ProfilePage: React.FC = () => {
             </div>
 
             {/* Profile Completion */}
-            <div className="text-right ml-6">
+            <div className="text-right ml-6 w-56 flex-shrink-0">
               <div className="flex items-center space-x-2 mb-2">
                 <span className="text-sm font-medium text-gray-700">
                   Profile Completion
@@ -1512,6 +1520,21 @@ const ProfilePage: React.FC = () => {
             currentUserId={user.id}
             onClose={() => setOpenChatInquiry(null)}
           />
+        )}
+        {/* Premium Modal Overlay */}
+        {showPremiumModal && (
+          <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/30" onClick={() => setShowPremiumModal(false)}>
+            <div className="bg-white/90 backdrop-blur-sm rounded-xl shadow-xl p-8 max-w-md mx-4 text-center relative" onClick={e => e.stopPropagation()}>
+              <h2 className="text-2xl font-bold text-gray-900 mb-4">Premium Feature</h2>
+              <p className="text-gray-600 mb-6">Unlock access to PDF transaction reports and more with our Premium plan.</p>
+              <button
+                onClick={() => navigate('/pricing')}
+                className="bg-primary-600 hover:bg-primary-700 text-white font-medium py-3 px-8 rounded-lg transition-colors"
+              >
+                Upgrade to Premium
+              </button>
+            </div>
+          </div>
         )}
       </div>
     </div>

@@ -1,6 +1,6 @@
 import React from 'react';
 import { Link, useNavigate } from 'react-router-dom';
-import { ArrowRight, Search, Users, Zap, Shield, Star } from 'lucide-react';
+import { ArrowRight, Search, Users, Zap, Star, User } from 'lucide-react';
 import { useAuth } from '../contexts/AuthContext';
 
 const LandingPage: React.FC = () => {
@@ -122,7 +122,9 @@ const LandingPage: React.FC = () => {
                 "HyperLocal helped us find reliable local suppliers for our restaurant. The direct connection saved us both time and money."
               </p>
               <div className="flex items-center">
-                <div className="bg-gray-300 w-10 h-10 rounded-full mr-3"></div>
+                <div className="bg-blue-100 w-10 h-10 rounded-full mr-3 flex items-center justify-center">
+                  <User className="h-6 w-6 text-gray-500" />
+                </div>
                 <div>
                   <p className="font-semibold text-gray-900">Sarah Johnson</p>
                   <p className="text-sm text-gray-600">Owner, Green Leaf Bistro</p>
@@ -140,7 +142,9 @@ const LandingPage: React.FC = () => {
                 "We've increased our customer base by 40% since listing our cleaning services on HyperLocal. Great platform!"
               </p>
               <div className="flex items-center">
-                <div className="bg-gray-300 w-10 h-10 rounded-full mr-3"></div>
+                <div className="bg-blue-100 w-10 h-10 rounded-full mr-3 flex items-center justify-center">
+                  <User className="h-6 w-6 text-gray-500" />
+                </div>
                 <div>
                   <p className="font-semibold text-gray-900">Mike Chen</p>
                   <p className="text-sm text-gray-600">CEO, CleanPro Services</p>
@@ -158,7 +162,9 @@ const LandingPage: React.FC = () => {
                 "The inquiry system works perfectly. We get qualified leads and can communicate directly with potential customers."
               </p>
               <div className="flex items-center">
-                <div className="bg-gray-300 w-10 h-10 rounded-full mr-3"></div>
+                <div className="bg-blue-100 w-10 h-10 rounded-full mr-3 flex items-center justify-center">
+                  <User className="h-6 w-6 text-gray-500" />
+                </div>
                 <div>
                   <p className="font-semibold text-gray-900">Emma Rodriguez</p>
                   <p className="text-sm text-gray-600">Manager, TechFix Solutions</p>

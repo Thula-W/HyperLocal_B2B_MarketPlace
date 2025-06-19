@@ -41,8 +41,6 @@ const PricingPage: React.FC = () => {  const plans = [
         'Priority support',
         'Featured listing slots',
         'Bulk inquiry management',
-        'Custom business profile',
-        'API access',
         'Early access to new features'
       ],
       limitations: [],
@@ -92,11 +90,11 @@ const PricingPage: React.FC = () => {  const plans = [
         </div>
 
         {/* Pricing Cards */}
-        <div className="grid md:grid-cols-2 gap-8 max-w-4xl mx-auto mb-16">
+        <div className="grid md:grid-cols-2 gap-8 max-w-4xl mx-auto mb-4 items-stretch h-full">
           {plans.map((plan) => (
             <div
               key={plan.name}
-              className={`relative bg-white rounded-2xl shadow-lg border-2 p-8 ${
+              className={`relative bg-white rounded-2xl shadow-lg border-2 flex flex-col h-full p-8 ${
                 plan.popular 
                   ? 'border-primary-500 transform scale-105' 
                   : 'border-gray-200'
@@ -111,45 +109,47 @@ const PricingPage: React.FC = () => {  const plans = [
                 </div>
               )}
 
-              <div className="text-center mb-8">
+              <div className="text-center mb-8 flex flex-col flex-grow">
                 <h3 className="text-2xl font-bold text-gray-900 mb-2">{plan.name}</h3>
                 <div className="mb-4">
                   <span className="text-4xl font-bold text-gray-900">{plan.price}</span>
                   <span className="text-gray-600 ml-2">/{plan.period}</span>
                 </div>
-                <p className="text-gray-600">{plan.description}</p>
+                <p className="text-gray-600 mb-6">{plan.description}</p>
+                <div className="space-y-4 mb-8 flex-grow">
+                  <h4 className="font-semibold text-gray-900">What's included:</h4>
+                  <ul className="space-y-3">
+                    {plan.features.map((feature, index) => (
+                      <li key={index} className="flex items-start space-x-3">
+                        <Check className="h-5 w-5 text-green-500 mt-0.5 flex-shrink-0" />
+                        <span className="text-gray-700">{feature}</span>
+                      </li>
+                    ))}
+                  </ul>
+                </div>
+                <div className="mt-auto">
+                  <Link
+                    to="/signin"
+                    className={`w-full block text-center py-3 px-6 rounded-lg font-medium transition-colors ${
+                      plan.popular
+                        ? 'bg-primary-600 hover:bg-primary-700 text-white'
+                        : 'bg-gray-100 hover:bg-gray-200 text-gray-900'
+                    }`}
+                  >
+                    {plan.cta}
+                  </Link>
+                  {plan.name === 'Premium' && (
+                    <p className="text-center text-sm text-gray-500 mt-3">
+                      30-day free trial
+                    </p>
+                  )}
+                </div>
               </div>
-
-              <div className="space-y-4 mb-8">
-                <h4 className="font-semibold text-gray-900">What's included:</h4>
-                <ul className="space-y-3">
-                  {plan.features.map((feature, index) => (
-                    <li key={index} className="flex items-start space-x-3">
-                      <Check className="h-5 w-5 text-green-500 mt-0.5 flex-shrink-0" />
-                      <span className="text-gray-700">{feature}</span>
-                    </li>
-                  ))}
-                </ul>
-              </div>
-
-              <Link
-                to="/signin"
-                className={`w-full block text-center py-3 px-6 rounded-lg font-medium transition-colors ${
-                  plan.popular
-                    ? 'bg-primary-600 hover:bg-primary-700 text-white'
-                    : 'bg-gray-100 hover:bg-gray-200 text-gray-900'
-                }`}
-              >
-                {plan.cta}
-              </Link>
-
-              {plan.name === 'Premium' && (
-                <p className="text-center text-sm text-gray-500 mt-3">
-                  30-day free trial • No credit card required
-                </p>
-              )}
             </div>
           ))}
+        </div>
+        <div className="text-center text-sm text-gray-500 mb-12 mt-8">
+          Note: A 3% commission applies to every transaction.
         </div>
 
         {/* Features Comparison */}
