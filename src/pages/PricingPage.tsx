@@ -2,8 +2,7 @@ import React from 'react';
 import { Link } from 'react-router-dom';
 import { Check, Star, Zap } from 'lucide-react';
 
-const PricingPage: React.FC = () => {
-  const plans = [
+const PricingPage: React.FC = () => {  const plans = [
     {
       name: 'Free',
       price: '$0',
@@ -11,6 +10,7 @@ const PricingPage: React.FC = () => {
       description: 'Perfect for small businesses getting started',
       features: [
         'Up to 3 active listings',
+        'Up to 3 auction listings',
         'Basic inquiry management',
         'Standard support',
         'Community access',
@@ -19,7 +19,8 @@ const PricingPage: React.FC = () => {
       limitations: [
         'Limited visibility in search results',
         'No premium badges',
-        'Standard listing placement'
+        'Standard listing placement',
+        'No nearby business discovery'
       ],
       cta: 'Get Started Free',
       popular: false,
@@ -32,6 +33,8 @@ const PricingPage: React.FC = () => {
       description: 'For growing businesses that need more visibility',
       features: [
         'Unlimited listings',
+        'Unlimited auction listings', 
+        'Nearby business discovery',
         'Priority in search results',
         'Premium business badge',
         'Advanced analytics',
@@ -48,7 +51,6 @@ const PricingPage: React.FC = () => {
       color: 'primary'
     }
   ];
-
   const faqs = [
     {
       question: 'Can I switch between plans?',
@@ -56,7 +58,15 @@ const PricingPage: React.FC = () => {
     },
     {
       question: 'What happens to my listings if I downgrade?',
-      answer: 'If you downgrade from Premium to Free, your listings will remain active but you\'ll lose premium features like priority placement and advanced analytics.'
+      answer: 'If you downgrade from Premium to Free, your listings will remain active but you\'ll lose premium features like priority placement and advanced analytics. Any listings beyond the 3-listing limit will be automatically archived.'
+    },
+    {
+      question: 'What are the auction listing limits?',
+      answer: 'Free users can create up to 3 auction listings at a time. Premium users have unlimited auction listings. This helps ensure auction quality while giving everyone a chance to participate.'
+    },
+    {
+      question: 'How does nearby business discovery work?',
+      answer: 'This premium feature uses Google Maps to help you find and connect with businesses near your location. It\'s perfect for discovering local suppliers, partners, and networking opportunities in your area.'
     },
     {
       question: 'Is there a long-term contract?',
@@ -156,12 +166,25 @@ const PricingPage: React.FC = () => {
                   <th className="text-center py-4 px-6 font-semibold text-gray-900">Free</th>
                   <th className="text-center py-4 px-6 font-semibold text-gray-900">Premium</th>
                 </tr>
-              </thead>
-              <tbody className="divide-y divide-gray-200">
+              </thead>              <tbody className="divide-y divide-gray-200">
                 <tr>
                   <td className="py-4 px-6 text-gray-700">Active Listings</td>
                   <td className="py-4 px-6 text-center text-gray-700">3</td>
                   <td className="py-4 px-6 text-center text-gray-700">Unlimited</td>
+                </tr>
+                <tr>
+                  <td className="py-4 px-6 text-gray-700">Auction Listings</td>
+                  <td className="py-4 px-6 text-center text-gray-700">3</td>
+                  <td className="py-4 px-6 text-center text-gray-700">Unlimited</td>
+                </tr>
+                <tr>
+                  <td className="py-4 px-6 text-gray-700">Nearby Business Discovery</td>
+                  <td className="py-4 px-6 text-center">
+                    <span className="text-gray-400">—</span>
+                  </td>
+                  <td className="py-4 px-6 text-center">
+                    <Check className="h-5 w-5 text-green-500 mx-auto" />
+                  </td>
                 </tr>
                 <tr>
                   <td className="py-4 px-6 text-gray-700">Search Priority</td>
