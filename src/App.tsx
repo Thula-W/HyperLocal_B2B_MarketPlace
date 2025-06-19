@@ -12,6 +12,9 @@ import PricingPage from './pages/PricingPage';
 import CatalogPage from './pages/CatalogPage';
 import RegisterCompanyPage from './pages/RegisterCompanyPage';
 import NearbyBusinessesPage from './pages/NearbyBusinessesPage';
+import AuctionCatalogPage from './pages/AuctionCatalogPage';
+import CreateAuctionPage from './pages/CreateAuctionPage';
+import AuctionDetailPage from './pages/AuctionDetailPage';
 
 const LoadingSpinner = () => (
   <div className="min-h-screen bg-gray-50 flex items-center justify-center">
@@ -65,6 +68,35 @@ const AppContent = () => {
             <ProtectedRoute>
               <BusinessCompletionGuard>
                 <MakeListingPage />
+              </BusinessCompletionGuard>
+            </ProtectedRoute>
+          } 
+        />
+        <Route 
+          path="/auctions" 
+          element={
+            <ProtectedRoute>
+              <BusinessCompletionGuard>
+                <AuctionCatalogPage />
+              </BusinessCompletionGuard>
+            </ProtectedRoute>
+          } 
+        />        <Route 
+          path="/auctions/create" 
+          element={
+            <ProtectedRoute>
+              <BusinessCompletionGuard>
+                <CreateAuctionPage />
+              </BusinessCompletionGuard>
+            </ProtectedRoute>
+          } 
+        />
+        <Route 
+          path="/auctions/:id" 
+          element={
+            <ProtectedRoute>
+              <BusinessCompletionGuard>
+                <AuctionDetailPage />
               </BusinessCompletionGuard>
             </ProtectedRoute>
           } 

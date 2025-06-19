@@ -19,6 +19,24 @@ const CatalogPage: React.FC = () => {
   const [inquiryMessage, setInquiryMessage] = useState('');
   const [requestedQuantity, setRequestedQuantity] = useState('');
   const [submittingInquiry, setSubmittingInquiry] = useState(false);
+
+  // Helper function to format price with dollar sign
+  const formatPrice = (price: string) => {
+    if (!price) return '$0';
+    
+    // Remove any existing currency symbols and spaces
+    const cleanPrice = price.replace(/[$,\s]/g, '');
+    
+    // Check if it's a valid number
+    const numericPrice = parseFloat(cleanPrice);
+    if (isNaN(numericPrice)) {
+      // If not a number, return as-is but ensure it has $ prefix
+      return price.includes('$') ? price : `$${price}`;
+    }
+    
+    // Format as currency
+    return `$${numericPrice.toLocaleString()}`;
+  };
   useEffect(() => {
     if (!isAuthenticated) {
       navigate('/signin');
@@ -158,11 +176,20 @@ const CatalogPage: React.FC = () => {
   };
   const submitInquiry = async () => {
     if (!selectedListing || !user || !inquiryMessage.trim()) return;
-    
-    // For products, validate quantity
-    if (selectedListing.type === 'product' && (!requestedQuantity || parseInt(requestedQuantity) <= 0)) {
-      alert('Please specify a valid quantity for this product.');
-      return;
+      // For products, validate quantity
+    if (selectedListing.type === 'product') {
+      const requestedQty = parseInt(requestedQuantity);
+      const availableQty = selectedListing.quantity || 0;
+      
+      if (!requestedQuantity || requestedQty <= 0) {
+        alert('Please specify a valid quantity for this product.');
+        return;
+      }
+      
+      if (requestedQty > availableQty) {
+        alert(`Requested quantity (${requestedQty}) exceeds available quantity (${availableQty}).`);
+        return;
+      }
     }
     
     setSubmittingInquiry(true);
@@ -413,10 +440,10 @@ const CatalogPage: React.FC = () => {
 
                 <p className="text-gray-600 text-sm mb-4 line-clamp-2">{listing.description}</p>                <div className="flex items-center justify-between">
                   <div>
-                    <span className="text-lg font-bold text-gray-900">{listing.price}</span>
+                    <span className="text-lg font-bold text-gray-900">{formatPrice(listing.price)}</span>
                     {listing.type === 'product' && listing.quantity && (
-                      <div className="text-xs text-gray-500 flex items-center mt-1">
-                        <Package className="h-3 w-3 mr-1" />
+                      <div className="text-sm text-green-600 flex items-center mt-1 font-medium">
+                        <Package className="h-4 w-4 mr-1" />
                         {listing.quantity} available
                       </div>
                     )}
@@ -514,7 +541,7 @@ const CatalogPage: React.FC = () => {
                         </div>
                       </div>
                     </div>                    <div className="text-right">
-                      <div className="text-2xl font-bold text-primary-600 mb-1">{selectedListing.price}</div>
+                      <div className="text-2xl font-bold text-primary-600 mb-1">{formatPrice(selectedListing.price)}</div>
                       {selectedListing.type === 'product' && selectedListing.quantity && (
                         <div className="text-sm text-gray-600 mb-1">
                           <div className="flex items-center justify-end">
@@ -631,24 +658,39 @@ const CatalogPage: React.FC = () => {
                 <div className="mb-4">
                   <label className="block text-sm font-medium text-gray-700 mb-2">
                     Quantity Required
-                  </label>
-                  <div className="relative">
+                  </label>                  <div className="relative">
                     <input
                       type="number"
                       value={requestedQuantity}
                       onChange={(e) => setRequestedQuantity(e.target.value)}
-                      className="input-field pl-10"
+                      className={`input-field pl-10 ${
+                        requestedQuantity && (
+                          parseInt(requestedQuantity) <= 0 || 
+                          parseInt(requestedQuantity) > (selectedListing.quantity || 0)
+                        ) ? 'border-red-300 focus:border-red-500 focus:ring-red-500' : ''
+                      }`}
                       placeholder="Enter quantity needed"
                       min="1"
                       max={selectedListing.quantity || 999999}
                       required
                     />
                     <Package className="h-5 w-5 text-gray-400 absolute left-3 top-2.5" />
-                  </div>
-                  {selectedListing.quantity && (
-                    <p className="text-sm text-gray-500 mt-1">
-                      Available: {selectedListing.quantity} units
-                    </p>
+                  </div>{selectedListing.quantity && (
+                    <div className="mt-1">
+                      <p className="text-sm text-gray-500">
+                        Available: {selectedListing.quantity} units
+                      </p>
+                      {requestedQuantity && parseInt(requestedQuantity) > selectedListing.quantity && (
+                        <p className="text-sm text-red-600 mt-1">
+                          ⚠️ Requested quantity exceeds available stock
+                        </p>
+                      )}
+                      {requestedQuantity && parseInt(requestedQuantity) <= 0 && (
+                        <p className="text-sm text-red-600 mt-1">
+                          ⚠️ Quantity must be greater than 0
+                        </p>
+                      )}
+                    </div>
                   )}
                 </div>
               )}
@@ -667,11 +709,14 @@ const CatalogPage: React.FC = () => {
                 />
               </div><div className="flex space-x-4">                <button
                   onClick={submitInquiry}
-                  className="flex-1 btn-primary flex items-center justify-center"
-                  disabled={
-                    !inquiryMessage.trim() || 
+                  className="flex-1 btn-primary flex items-center justify-center"                  disabled={
+                    !inquiryMessage.trim() ||
                     submittingInquiry ||
-                    (selectedListing.type === 'product' && (!requestedQuantity || parseInt(requestedQuantity) <= 0))
+                    (selectedListing.type === 'product' && (
+                      !requestedQuantity || 
+                      parseInt(requestedQuantity) <= 0 ||
+                      parseInt(requestedQuantity) > (selectedListing.quantity || 0)
+                    ))
                   }
                 >
                   {submittingInquiry ? (

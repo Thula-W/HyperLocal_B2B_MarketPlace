@@ -28,6 +28,24 @@ const ProfilePage: React.FC = () => {
   const [showProfileModal, setShowProfileModal] = useState(false);  
   const [openChatInquiry, setOpenChatInquiry] = useState<Inquiry | null>(null);
 
+  // Helper function to format price with dollar sign
+  const formatPrice = (price: string) => {
+    if (!price) return '$0';
+    
+    // Remove any existing currency symbols and spaces
+    const cleanPrice = price.replace(/[$,\s]/g, '');
+    
+    // Check if it's a valid number
+    const numericPrice = parseFloat(cleanPrice);
+    if (isNaN(numericPrice)) {
+      // If not a number, return as-is but ensure it has $ prefix
+      return price.includes('$') ? price : `$${price}`;
+    }
+    
+    // Format as currency
+    return `$${numericPrice.toLocaleString()}`;
+  };
+
   const fetchData = useCallback(async () => {
     if (!user) return;
     
@@ -412,7 +430,7 @@ const ProfilePage: React.FC = () => {
                         <div className="flex justify-between items-start">
                           <div>
                             <h4 className="font-medium text-gray-900">{listing.title}</h4>
-                            <p className="text-sm text-gray-600">{listing.price}</p>
+                            <p className="text-sm text-gray-600">{formatPrice(listing.price)}</p>
                           </div>
                           <span className={`px-2 py-1 rounded-full text-xs font-medium ${
                             listing.type === 'service' 
@@ -480,7 +498,7 @@ const ProfilePage: React.FC = () => {
                               }`}>
                                 {listing.type}
                               </span>
-                            </div>                            <p className="text-gray-600 mb-2">{listing.price}</p>
+                            </div>                            <p className="text-gray-600 mb-2">{formatPrice(listing.price)}</p>
                             {listing.type === 'product' && listing.quantity && (
                               <p className="text-sm text-gray-500 mb-2 flex items-center">
                                 <Package className="h-4 w-4 mr-1" />
@@ -532,24 +550,40 @@ const ProfilePage: React.FC = () => {
               </div>
               <div className="space-y-4">
                 {inquiries.received.length > 0 ? inquiries.received.map((inquiry) => (
-                  <div key={inquiry.id} className="bg-white rounded-lg border border-gray-200 p-6">
-                    <div className="flex justify-between items-start mb-4">
+                  <div key={inquiry.id} className="bg-white rounded-lg border border-gray-200 p-6">                    <div className="flex justify-between items-start mb-4">
                       <div>
                         <h4 className="font-medium text-gray-900">{inquiry.fromUserName}</h4>
                         <p className="text-sm text-gray-500">{inquiry.fromUserCompany}</p>
                       </div>
-                      <span className={`px-2 py-1 rounded-full text-xs font-medium ${
-                        inquiry.status === 'pending' ? 'bg-yellow-100 text-yellow-800' :
-                        // inquiry.status === 'responded' ? 'bg-green-100 text-green-800' :
-                        inquiry.status === 'accepted' ? 'bg-blue-100 text-blue-800' :
-                        inquiry.status === 'rejected' ? 'bg-red-100 text-red-800' :
-                        'bg-gray-100 text-gray-800'
-                      }`}>
-                        {inquiry.status}
-                      </span>
-                    </div>
-                    <p className="text-sm font-medium text-gray-700 mb-2">Re: {inquiry.listingTitle}</p>
+                      <div className="flex space-x-2">
+                        <span className={`px-2 py-1 rounded-full text-xs font-medium ${
+                          inquiry.status === 'pending' ? 'bg-yellow-100 text-yellow-800' :
+                          inquiry.status === 'accepted' ? 'bg-blue-100 text-blue-800' :
+                          inquiry.status === 'rejected' ? 'bg-red-100 text-red-800' :
+                          'bg-gray-100 text-gray-800'
+                        }`}>
+                          {inquiry.status}
+                        </span>
+                        {inquiry.purchaseStatus === 'purchased' && (
+                          <span className="px-2 py-1 rounded-full text-xs font-medium bg-green-100 text-green-800">
+                            Purchased
+                          </span>
+                        )}
+                      </div>
+                    </div>                    <p className="text-sm font-medium text-gray-700 mb-2">Re: {inquiry.listingTitle}</p>
                     <p className="text-gray-600 mb-4">{inquiry.message}</p>
+                    {inquiry.purchaseStatus === 'purchased' && inquiry.purchaseAmount && (
+                      <div className="bg-green-50 border border-green-200 rounded-md p-3 mb-4">
+                        <p className="text-sm font-medium text-green-800">
+                          Item sold for ${inquiry.purchaseAmount.toFixed(2)}
+                        </p>
+                        {inquiry.purchaseDate && (
+                          <p className="text-xs text-green-600 mt-1">
+                            Sold on {new Date(inquiry.purchaseDate).toLocaleDateString()}
+                          </p>
+                        )}
+                      </div>
+                    )}
                     <p className="text-xs text-gray-500">
                       {new Date(inquiry.createdAt).toLocaleDateString()}
                     </p>
@@ -598,23 +632,39 @@ const ProfilePage: React.FC = () => {
               <h3 className="text-lg font-semibold text-gray-900 mb-6">Inquiries Made</h3>
               <div className="space-y-4">
                 {inquiries.sent.length > 0 ? inquiries.sent.map((inquiry) => (
-                  <div key={inquiry.id} className="bg-white rounded-lg border border-gray-200 p-6">
-                    <div className="flex justify-between items-start mb-4">
+                  <div key={inquiry.id} className="bg-white rounded-lg border border-gray-200 p-6">                    <div className="flex justify-between items-start mb-4">
                       <div>
                         <h4 className="font-medium text-gray-900">To: {inquiry.toUserEmail}</h4>
                       </div>
-                      <span className={`px-2 py-1 rounded-full text-xs font-medium ${
-                        inquiry.status === 'pending' ? 'bg-yellow-100 text-yellow-800' :
-                        inquiry.status === 'accepted' ? 'bg-blue-100 text-blue-800' :
-                        inquiry.status === 'rejected' ? 'bg-red-100 text-red-800' :
-                        // inquiry.status === 'responded' ? 'bg-green-100 text-green-800' :
-                        'bg-gray-100 text-gray-800'
-                      }`}>
-                        {inquiry.status}
-                      </span>
-                    </div>
-                    <p className="text-sm font-medium text-gray-700 mb-2">Re: {inquiry.listingTitle}</p>
+                      <div className="flex space-x-2">
+                        <span className={`px-2 py-1 rounded-full text-xs font-medium ${
+                          inquiry.status === 'pending' ? 'bg-yellow-100 text-yellow-800' :
+                          inquiry.status === 'accepted' ? 'bg-blue-100 text-blue-800' :
+                          inquiry.status === 'rejected' ? 'bg-red-100 text-red-800' :
+                          'bg-gray-100 text-gray-800'
+                        }`}>
+                          {inquiry.status}
+                        </span>
+                        {inquiry.purchaseStatus === 'purchased' && (
+                          <span className="px-2 py-1 rounded-full text-xs font-medium bg-green-100 text-green-800">
+                            Purchased
+                          </span>
+                        )}
+                      </div>
+                    </div>                    <p className="text-sm font-medium text-gray-700 mb-2">Re: {inquiry.listingTitle}</p>
                     <p className="text-gray-600 mb-4">{inquiry.message}</p>
+                    {inquiry.purchaseStatus === 'purchased' && inquiry.purchaseAmount && (
+                      <div className="bg-green-50 border border-green-200 rounded-md p-3 mb-4">
+                        <p className="text-sm font-medium text-green-800">
+                          Purchase completed for ${inquiry.purchaseAmount.toFixed(2)}
+                        </p>
+                        {inquiry.purchaseDate && (
+                          <p className="text-xs text-green-600 mt-1">
+                            Purchased on {new Date(inquiry.purchaseDate).toLocaleDateString()}
+                          </p>
+                        )}
+                      </div>
+                    )}
                     <p className="text-xs text-gray-500">
                       {new Date(inquiry.createdAt).toLocaleDateString()}
                     </p>

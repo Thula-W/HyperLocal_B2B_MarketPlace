@@ -53,6 +53,9 @@ export interface Inquiry {
   status: "pending" | "accepted" | "rejected";
   createdAt: string;
   respondedAt?: string;
+  purchaseStatus?: 'not_purchased' | 'purchased' | 'delivered';
+  purchaseDate?: string;
+  purchaseAmount?: number;
 }
 
 export interface ChatMessage {
@@ -74,6 +77,51 @@ export interface Company {
   registrationNumber?: string;
   operatingSince?: string;
   website?: string;
+}
+
+export interface AuctionListing {
+  id?: string;
+  title: string;
+  description: string;
+  type: 'product'; // Auctions are typically for physical products
+  startingPrice: number;
+  currentBid: number;
+  buyNowPrice?: number; // Optional "Buy It Now" price
+  category: string;
+  quantity: number;
+  condition: 'new' | 'like-new' | 'good' | 'fair' | 'poor';
+  reason: 'surplus' | 'overstock' | 'discontinued' | 'damaged' | 'returned' | 'other';
+  userId: string;
+  userEmail: string;
+  userName: string;
+  userCompany: string;
+  status: 'draft' | 'active' | 'ended' | 'sold';
+  images?: string[];
+  startTime: string;
+  endTime: string;
+  bids: AuctionBid[];
+  views?: number;
+  watchers?: string[]; // User IDs watching this auction
+  createdAt: string;
+  updatedAt: string;
+}
+
+export interface AuctionBid {
+  id: string;
+  amount: number;
+  bidderId: string;
+  bidderName: string;
+  bidderCompany: string;
+  bidderEmail: string;
+  timestamp: string;
+  isWinning: boolean;
+}
+
+export interface AuctionWatch {
+  id?: string;
+  auctionId: string;
+  userId: string;
+  createdAt: string;
 }
 
 // Listings functions
@@ -401,5 +449,232 @@ export const getCompanyByUserEmail = async (userEmail: string): Promise<Company 
   } catch (error) {
     console.error('Error getting company by user email:', error);
     return null;
+  }
+};
+
+// Auction functions
+export const createAuctionListing = async (auction: Omit<AuctionListing, 'id' | 'createdAt' | 'updatedAt' | 'currentBid' | 'bids'>): Promise<string> => {
+  try {
+    const now = new Date().toISOString();
+    const auctionData: Omit<AuctionListing, 'id'> = {
+      ...auction,
+      currentBid: auction.startingPrice,
+      bids: [],
+      views: 0,
+      watchers: [],
+      createdAt: now,
+      updatedAt: now,
+    };
+    
+    const docRef = await addDoc(collection(db, 'auctions'), auctionData);
+    return docRef.id;
+  } catch (error) {
+    console.error('Error creating auction listing:', error);
+    throw error;
+  }
+};
+
+export const getActiveAuctions = async (): Promise<AuctionListing[]> => {
+  try {
+    const now = new Date().toISOString();
+    const q = query(
+      collection(db, 'auctions'),
+      where('status', '==', 'active'),
+      where('endTime', '>', now),
+      orderBy('endTime', 'asc')
+    );
+    const snapshot = await getDocs(q);
+    return snapshot.docs.map(doc => ({ id: doc.id, ...doc.data() } as AuctionListing));
+  } catch (error) {
+    console.error('Error fetching active auctions:', error);
+    throw error;
+  }
+};
+
+export const getAuctionById = async (auctionId: string): Promise<AuctionListing | null> => {
+  try {
+    const docRef = doc(db, 'auctions', auctionId);
+    const docSnap = await getDoc(docRef);
+    
+    if (docSnap.exists()) {
+      return { id: docSnap.id, ...docSnap.data() } as AuctionListing;
+    }
+    return null;
+  } catch (error) {
+    console.error('Error fetching auction:', error);
+    throw error;
+  }
+};
+
+export const placeBid = async (auctionId: string, bid: Omit<AuctionBid, 'id' | 'isWinning'>): Promise<void> => {
+  try {
+    const auctionRef = doc(db, 'auctions', auctionId);
+    const auctionSnap = await getDoc(auctionRef);
+    
+    if (!auctionSnap.exists()) {
+      throw new Error('Auction not found');
+    }
+    
+    const auction = auctionSnap.data() as AuctionListing;
+    
+    // Validate bid amount
+    if (bid.amount <= auction.currentBid) {
+      throw new Error('Bid must be higher than current bid');
+    }
+    
+    // Check if auction is still active
+    const now = new Date().toISOString();
+    if (auction.status !== 'active' || auction.endTime <= now) {
+      throw new Error('Auction is no longer active');
+    }
+    
+    // Mark all previous bids as not winning
+    const updatedBids = auction.bids.map(b => ({ ...b, isWinning: false }));
+    
+    // Add new bid as winning bid
+    const newBid: AuctionBid = {
+      ...bid,
+      id: `bid_${Date.now()}_${Math.random().toString(36).substr(2, 9)}`,
+      isWinning: true,
+    };
+    
+    updatedBids.push(newBid);
+    
+    // Update auction with new bid
+    await updateDoc(auctionRef, {
+      currentBid: bid.amount,
+      bids: updatedBids,
+      updatedAt: now,
+    });
+  } catch (error) {
+    console.error('Error placing bid:', error);
+    throw error;
+  }
+};
+
+export const watchAuction = async (auctionId: string, userId: string): Promise<void> => {
+  try {
+    const auctionRef = doc(db, 'auctions', auctionId);
+    const auctionSnap = await getDoc(auctionRef);
+    
+    if (!auctionSnap.exists()) {
+      throw new Error('Auction not found');
+    }
+    
+    const auction = auctionSnap.data() as AuctionListing;
+    const watchers = auction.watchers || [];
+    
+    if (!watchers.includes(userId)) {
+      watchers.push(userId);
+      await updateDoc(auctionRef, {
+        watchers,
+        updatedAt: new Date().toISOString(),
+      });
+    }
+  } catch (error) {
+    console.error('Error watching auction:', error);
+    throw error;
+  }
+};
+
+export const unwatchAuction = async (auctionId: string, userId: string): Promise<void> => {
+  try {
+    const auctionRef = doc(db, 'auctions', auctionId);
+    const auctionSnap = await getDoc(auctionRef);
+    
+    if (!auctionSnap.exists()) {
+      throw new Error('Auction not found');
+    }
+    
+    const auction = auctionSnap.data() as AuctionListing;
+    const watchers = (auction.watchers || []).filter(id => id !== userId);
+    
+    await updateDoc(auctionRef, {
+      watchers,
+      updatedAt: new Date().toISOString(),
+    });
+  } catch (error) {
+    console.error('Error unwatching auction:', error);
+    throw error;
+  }
+};
+
+export const getUserAuctions = async (userId: string): Promise<AuctionListing[]> => {
+  try {
+    const q = query(
+      collection(db, 'auctions'),
+      where('userId', '==', userId),
+      orderBy('createdAt', 'desc')
+    );
+    const snapshot = await getDocs(q);
+    return snapshot.docs.map(doc => ({ id: doc.id, ...doc.data() } as AuctionListing));
+  } catch (error) {
+    console.error('Error fetching user auctions:', error);
+    throw error;
+  }
+};
+
+export const getUserBids = async (userId: string): Promise<AuctionListing[]> => {
+  try {
+    // Get all auctions where user has placed bids
+    const q = query(collection(db, 'auctions'));
+    const snapshot = await getDocs(q);
+    
+    const auctionsWithUserBids: AuctionListing[] = [];
+    
+    snapshot.docs.forEach(doc => {
+      const auction = { id: doc.id, ...doc.data() } as AuctionListing;
+      const hasBid = auction.bids.some(bid => bid.bidderId === userId);
+      if (hasBid) {
+        auctionsWithUserBids.push(auction);
+      }
+    });
+    
+    return auctionsWithUserBids.sort((a, b) => 
+      new Date(b.updatedAt).getTime() - new Date(a.updatedAt).getTime()
+    );
+  } catch (error) {
+    console.error('Error fetching user bids:', error);
+    throw error;
+  }
+};
+
+export const purchaseListing = async (inquiryId: string, purchaseAmount: number): Promise<void> => {
+  try {
+    console.log('purchaseListing: Starting purchase for inquiry:', inquiryId);
+    
+    const inquiryRef = doc(db, 'inquiries', inquiryId);
+    
+    const purchaseData = {
+      purchaseStatus: 'purchased' as const,
+      purchaseDate: new Date().toISOString(),
+      purchaseAmount
+    };
+    
+    await updateDoc(inquiryRef, purchaseData);
+    
+    // Optionally, you could also update the listing to mark it as sold or reduce quantity
+    // const listingRef = doc(db, 'listings', listingId);
+    // await updateDoc(listingRef, { status: 'sold' });
+    
+    console.log('purchaseListing: Purchase completed successfully');
+  } catch (error) {
+    console.error('Error completing purchase:', error);
+    throw error;
+  }
+};
+
+export const getListingById = async (listingId: string): Promise<Listing | null> => {
+  try {
+    const listingRef = doc(db, 'listings', listingId);
+    const listingDoc = await getDoc(listingRef);
+    
+    if (listingDoc.exists()) {
+      return { id: listingDoc.id, ...listingDoc.data() } as Listing;
+    }
+    return null;
+  } catch (error) {
+    console.error('Error getting listing:', error);
+    throw error;
   }
 };
