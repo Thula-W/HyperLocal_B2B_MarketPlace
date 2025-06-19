@@ -329,3 +329,8 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
 
   return <AuthContext.Provider value={value}>{children}</AuthContext.Provider>;
 };
+
+export const useUserPlan = () => {
+  const { user } = useAuth();
+  return user?.plan || 'free';
+};
