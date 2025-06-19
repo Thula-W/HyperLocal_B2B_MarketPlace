@@ -11,20 +11,24 @@ import {
   DollarSign,
   RefreshCw,
   Building,
-  AlertCircle
+  AlertCircle,
+  Gavel,
+  Trophy
 } from 'lucide-react';
 import { useAuth } from '../contexts/AuthContext';
-import { getUserListings, getUserInquiries, Listing, Inquiry, updateInquiry } from '../services/firestore';
+import { getUserListings, getUserInquiries, Listing, Inquiry, updateInquiry, getUserAuctions, getUserBids, AuctionListing, AuctionBid } from '../services/firestore';
 import ProfileCompletionModal from '../components/ProfileCompletionModal';
 import { InquiryChat } from '../components/InquiryChat';
 import { ImageGallery } from '../components/ImageDisplay';
 
 const ProfilePage: React.FC = () => {
   const { user } = useAuth();
-  const location = useLocation();
-  const [activeTab, setActiveTab] = useState('overview');
+  const location = useLocation();  const [activeTab, setActiveTab] = useState('overview');
   const [listings, setListings] = useState<Listing[]>([]);
-  const [inquiries, setInquiries] = useState<{ sent: Inquiry[], received: Inquiry[] }>({ sent: [], received: [] });  const [loading, setLoading] = useState(true);
+  const [inquiries, setInquiries] = useState<{ sent: Inquiry[], received: Inquiry[] }>({ sent: [], received: [] });
+  const [auctions, setAuctions] = useState<AuctionListing[]>([]);
+  const [userBids, setUserBids] = useState<{ auction: AuctionListing, bid: AuctionBid }[]>([]);
+  const [loading, setLoading] = useState(true);
   const [showProfileModal, setShowProfileModal] = useState(false);  
   const [openChatInquiry, setOpenChatInquiry] = useState<Inquiry | null>(null);
 
@@ -45,24 +49,29 @@ const ProfilePage: React.FC = () => {
     // Format as currency
     return `$${numericPrice.toLocaleString()}`;
   };
-
   const fetchData = useCallback(async () => {
     if (!user) return;
     
     console.log('Fetching profile data for user:', user.id);
     setLoading(true);
     try {
-      const [userListings, userInquiries] = await Promise.all([
+      const [userListings, userInquiries, userAuctions, userBidsData] = await Promise.all([
         getUserListings(user.id),
-        getUserInquiries(user.id)
+        getUserInquiries(user.id),
+        getUserAuctions(user.id),
+        getUserBids(user.id)
       ]);
         console.log('Fetched listings:', userListings.length);
       console.log('Fetched inquiries:', userInquiries);
+      console.log('Fetched auctions:', userAuctions.length);
+      console.log('Fetched bids:', userBidsData.length);
       console.log('Inquiries sent:', userInquiries.sent);
       console.log('Inquiries received:', userInquiries.received);
       
       setListings(userListings);
-      setInquiries(userInquiries);      // Show profile completion modal for users without company info
+      setInquiries(userInquiries);
+      setAuctions(userAuctions);
+      setUserBids(userBidsData);      // Show profile completion modal for users without company info
       // or when explicitly required by route
       if (!user.companyDetails && user.name) {
         setShowProfileModal(true);
@@ -177,11 +186,12 @@ const ProfilePage: React.FC = () => {
         </div>
       </div>
     );
-  }
-  const tabs = [
+  }  const tabs = [
     { id: 'overview', label: 'Overview', icon: TrendingUp },
     { id: 'business', label: 'Business Profile', icon: Building },
     { id: 'listings', label: 'My Listings', icon: Package },
+    { id: 'auctions', label: 'My Auctions', icon: Gavel },
+    { id: 'bids', label: 'My Bids', icon: Trophy },
     { id: 'inquiries-received', label: 'Inquiries Received', icon: MessageSquare },
     { id: 'inquiries-made', label: 'Inquiries Made', icon: Mail }
   ];
@@ -870,8 +880,7 @@ const ProfilePage: React.FC = () => {
                       {user?.companyDetails && !user?.companyDetails.description && <li>• Add a business description</li>}
                       {user?.companyDetails && !user?.companyDetails.website && <li>• Add your company website</li>}
                       <li>• Create your first listing to showcase your services</li>
-                    </ul>
-                    <button
+                    </ul>                    <button
                       onClick={() => setShowProfileModal(true)}
                       className="btn-primary text-sm"
                     >
@@ -882,7 +891,193 @@ const ProfilePage: React.FC = () => {
               </div>
             </div>
           )}
-        </div>        {/* Profile Completion Modal */}        {showProfileModal && (
+
+          {/* Auctions Tab */}
+          {activeTab === 'auctions' && (
+            <div className="p-6">
+              <div className="flex justify-between items-center mb-6">
+                <h3 className="text-lg font-semibold text-gray-900">My Auctions</h3>
+                <Link
+                  to="/auctions/create"
+                  className="btn-primary flex items-center space-x-2"
+                >
+                  <Plus className="h-4 w-4" />
+                  <span>Create Auction</span>
+                </Link>
+              </div>
+
+              {loading ? (
+                <div className="text-center py-8">
+                  <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-primary-600 mx-auto"></div>
+                  <p className="text-gray-500 mt-2">Loading auctions...</p>
+                </div>
+              ) : auctions.length > 0 ? (
+                <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
+                  {auctions.map((auction) => (
+                    <div key={auction.id} className="card">
+                      <div className="mb-4">
+                        <div className="flex justify-between items-start mb-2">
+                          <h4 className="font-semibold text-gray-900 line-clamp-1">{auction.title}</h4>
+                          <span className={`px-2 py-1 text-xs rounded-full ${
+                            auction.status === 'active' 
+                              ? 'bg-green-100 text-green-800' 
+                              : 'bg-gray-100 text-gray-800'
+                          }`}>
+                            {auction.status}
+                          </span>
+                        </div>
+                        <p className="text-sm text-gray-600 line-clamp-2 mb-2">{auction.description}</p>
+                        <div className="flex items-center justify-between text-sm">
+                          <span className="text-gray-500">Starting: {formatPrice(auction.startingPrice.toString())}</span>
+                          <span className="font-medium text-primary-600">Current: {formatPrice(auction.currentBid.toString())}</span>
+                        </div>
+                      </div>
+
+                      <div className="space-y-2 mb-4">
+                        <div className="flex items-center justify-between text-sm">
+                          <span className="text-gray-600">Bids:</span>
+                          <span className="font-medium">{auction.bids?.length || 0}</span>
+                        </div>
+                        <div className="flex items-center justify-between text-sm">
+                          <span className="text-gray-600">Ends:</span>
+                          <span className="font-medium">{new Date(auction.endTime).toLocaleDateString()}</span>
+                        </div>
+                        <div className="flex items-center justify-between text-sm">
+                          <span className="text-gray-600">Views:</span>
+                          <span className="font-medium">{auction.views || 0}</span>
+                        </div>
+                      </div>
+
+                      <div className="flex space-x-2">
+                        <Link
+                          to={`/auctions/${auction.id}`}
+                          className="flex-1 btn-outline text-center text-sm"
+                        >
+                          View Details
+                        </Link>
+                      </div>
+                    </div>
+                  ))}
+                </div>
+              ) : (
+                <div className="text-center py-12">
+                  <Gavel className="h-16 w-16 text-gray-400 mx-auto mb-4" />
+                  <h4 className="text-lg font-semibold text-gray-900 mb-2">No Auctions Yet</h4>
+                  <p className="text-gray-600 mb-6">
+                    Create your first auction to sell surplus products through competitive bidding.
+                  </p>
+                  <Link
+                    to="/auctions/create"
+                    className="btn-primary"
+                  >
+                    Create Your First Auction
+                  </Link>
+                </div>
+              )}
+            </div>
+          )}
+
+          {/* Bids Tab */}
+          {activeTab === 'bids' && (
+            <div className="p-6">
+              <div className="flex justify-between items-center mb-6">
+                <h3 className="text-lg font-semibold text-gray-900">My Bids</h3>
+                <Link
+                  to="/auctions"
+                  className="btn-outline flex items-center space-x-2"
+                >
+                  <Gavel className="h-4 w-4" />
+                  <span>Browse Auctions</span>
+                </Link>
+              </div>
+
+              {loading ? (
+                <div className="text-center py-8">
+                  <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-primary-600 mx-auto"></div>
+                  <p className="text-gray-500 mt-2">Loading bids...</p>
+                </div>
+              ) : userBids.length > 0 ? (
+                <div className="space-y-4">
+                  {userBids.map((bidItem) => (
+                    <div key={`${bidItem.auction.id}-${bidItem.bid.timestamp}`} className="card">
+                      <div className="flex justify-between items-start mb-4">
+                        <div className="flex-1">
+                          <h4 className="font-semibold text-gray-900 mb-1">{bidItem.auction.title}</h4>
+                          <p className="text-sm text-gray-600 line-clamp-1">{bidItem.auction.description}</p>
+                        </div>
+                        <div className="text-right">
+                          <div className="text-lg font-bold text-primary-600">{formatPrice(bidItem.bid.amount.toString())}</div>
+                          <div className="text-xs text-gray-500">Your Bid</div>
+                        </div>
+                      </div>
+
+                      <div className="grid grid-cols-2 md:grid-cols-4 gap-4 mb-4">
+                        <div>
+                          <div className="text-sm text-gray-600">Current High Bid</div>
+                          <div className="font-medium">{formatPrice(bidItem.auction.currentBid.toString())}</div>
+                        </div>
+                        <div>
+                          <div className="text-sm text-gray-600">Your Status</div>
+                          <div className={`text-sm font-medium ${
+                            bidItem.bid.isWinning ? 'text-green-600' : 'text-orange-600'
+                          }`}>
+                            {bidItem.bid.isWinning ? 'Winning' : 'Outbid'}
+                          </div>
+                        </div>
+                        <div>
+                          <div className="text-sm text-gray-600">Bid Time</div>
+                          <div className="text-sm font-medium">{new Date(bidItem.bid.timestamp).toLocaleDateString()}</div>
+                        </div>
+                        <div>
+                          <div className="text-sm text-gray-600">Auction Ends</div>
+                          <div className="text-sm font-medium">{new Date(bidItem.auction.endTime).toLocaleDateString()}</div>
+                        </div>
+                      </div>
+
+                      <div className="flex items-center justify-between">
+                        <div className="flex items-center space-x-4">
+                          <span className={`px-2 py-1 text-xs rounded-full ${
+                            bidItem.auction.status === 'active' 
+                              ? 'bg-green-100 text-green-800' 
+                              : 'bg-gray-100 text-gray-800'
+                          }`}>
+                            {bidItem.auction.status}
+                          </span>
+                          {bidItem.bid.isWinning && (
+                            <span className="flex items-center text-sm text-green-600">
+                              <Trophy className="h-4 w-4 mr-1" />
+                              Leading Bid
+                            </span>
+                          )}
+                        </div>
+                        <Link
+                          to={`/auctions/${bidItem.auction.id}`}
+                          className="btn-outline text-sm"
+                        >
+                          View Auction
+                        </Link>
+                      </div>
+                    </div>
+                  ))}
+                </div>
+              ) : (
+                <div className="text-center py-12">
+                  <Trophy className="h-16 w-16 text-gray-400 mx-auto mb-4" />
+                  <h4 className="text-lg font-semibold text-gray-900 mb-2">No Bids Yet</h4>
+                  <p className="text-gray-600 mb-6">
+                    Browse auctions and place your first bid on items you're interested in.
+                  </p>
+                  <Link
+                    to="/auctions"
+                    className="btn-primary"
+                  >
+                    Browse Auctions
+                  </Link>
+                </div>
+              )}
+            </div>
+          )}
+        </div>{/* Profile Completion Modal */}        {showProfileModal && (
           <ProfileCompletionModal
             isOpen={showProfileModal}
             onClose={() => setShowProfileModal(false)}

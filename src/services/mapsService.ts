@@ -146,50 +146,14 @@ export const getNearbyBusinesses = async (
     
     return {
       businesses: allBusinesses,
-      userLocation,
-    };
-  } catch (error) {    console.error('Error getting nearby businesses:', error);
+      userLocation,    };
+  } catch (error) {
+    console.error('Error getting nearby businesses:', error);
     
-    // Return mock data for development
+    // Return empty result instead of mock data
     return {
-      businesses: [
-        {
-          id: '1',
-          name: 'TechCorp Solutions',
-          address: '123 Tech Street, Silicon Valley, CA',
-          businessType: 'Technology',
-          telephone: '+1-555-0123',
-          email: 'contact@techcorp.com',
-          website: 'www.techcorp.com',
-          description: 'Leading technology solutions provider for businesses.',
-          distance: 2.5,
-          coordinates: { lat: 40.7589, lng: -73.9851 },
-        },
-        {
-          id: '2',
-          name: 'Green Manufacturing Co.',
-          address: '456 Industrial Ave, Business District, CA',
-          businessType: 'Manufacturing',
-          telephone: '+1-555-0456',
-          email: 'info@greenmanuf.com',
-          description: 'Sustainable manufacturing solutions for modern businesses.',
-          distance: 5.8,
-          coordinates: { lat: 40.7505, lng: -73.9934 },
-        },
-        {
-          id: '3',
-          name: 'Metro Retail Services',
-          address: '789 Commerce Blvd, Downtown, CA',
-          businessType: 'Retail',
-          telephone: '+1-555-0789',
-          email: 'hello@metroretail.com',
-          website: 'www.metroretail.com',
-          description: 'Comprehensive retail solutions and consulting services.',
-          distance: 8.2,
-          coordinates: { lat: 40.7614, lng: -73.9776 },
-        },
-      ],
-      userLocation: { lat: 40.7128, lng: -74.0060 },
+      businesses: [],
+      userLocation: { lat: 40.7128, lng: -74.0060 }, // Default location (New York)
     };
   }
 };

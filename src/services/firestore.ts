@@ -617,32 +617,47 @@ export const getUserAuctions = async (userId: string): Promise<AuctionListing[]>
     return snapshot.docs.map(doc => ({ id: doc.id, ...doc.data() } as AuctionListing));
   } catch (error) {
     console.error('Error fetching user auctions:', error);
-    throw error;
+    // If orderBy fails due to index, try without ordering
+    try {
+      const q = query(
+        collection(db, 'auctions'),
+        where('userId', '==', userId)
+      );
+      const snapshot = await getDocs(q);
+      const auctions = snapshot.docs.map(doc => ({ id: doc.id, ...doc.data() } as AuctionListing));
+      // Sort in frontend
+      return auctions.sort((a, b) => new Date(b.createdAt).getTime() - new Date(a.createdAt).getTime());
+    } catch (innerError) {
+      console.error('Error fetching user auctions (fallback):', innerError);
+      return [];
+    }
   }
 };
 
-export const getUserBids = async (userId: string): Promise<AuctionListing[]> => {
+export const getUserBids = async (userId: string): Promise<{ auction: AuctionListing, bid: AuctionBid }[]> => {
   try {
-    // Get all auctions where user has placed bids
-    const q = query(collection(db, 'auctions'));
-    const snapshot = await getDocs(q);
+    // Get all auctions
+    const auctionsSnapshot = await getDocs(collection(db, 'auctions'));
+    const userBids: { auction: AuctionListing, bid: AuctionBid }[] = [];
     
-    const auctionsWithUserBids: AuctionListing[] = [];
-    
-    snapshot.docs.forEach(doc => {
+    // Check each auction for bids by this user
+    auctionsSnapshot.docs.forEach(doc => {
       const auction = { id: doc.id, ...doc.data() } as AuctionListing;
-      const hasBid = auction.bids.some(bid => bid.bidderId === userId);
-      if (hasBid) {
-        auctionsWithUserBids.push(auction);
-      }
+      
+      // Find bids by this user
+      const userBidsInAuction = auction.bids?.filter(bid => bid.bidderId === userId) || [];
+      
+      // Add each bid with auction info
+      userBidsInAuction.forEach(bid => {
+        userBids.push({ auction, bid });
+      });
     });
     
-    return auctionsWithUserBids.sort((a, b) => 
-      new Date(b.updatedAt).getTime() - new Date(a.updatedAt).getTime()
-    );
+    // Sort by bid timestamp (most recent first)
+    return userBids.sort((a, b) => new Date(b.bid.timestamp).getTime() - new Date(a.bid.timestamp).getTime());
   } catch (error) {
     console.error('Error fetching user bids:', error);
-    throw error;
+    return [];
   }
 };
 
