@@ -230,8 +230,7 @@ const CatalogPage: React.FC = () => {
     setSelectedCategory('');
     setSelectedSubcategory('');
     setSearchTerm('');
-  };
-  const refreshListings = async () => {
+  };  const refreshListings = async () => {
     try {
       setLoading(true);
       const fetchedListings = await getAllListings(50);
@@ -241,22 +240,6 @@ const CatalogPage: React.FC = () => {
       console.error('Error refreshing listings:', error);
     } finally {
       setLoading(false);
-    }
-  };
-
-  // Debug function to test raw Firestore access
-  const testDirectQuery = async () => {
-    try {
-      const { getDocs, collection } = await import('firebase/firestore');
-      const { db } = await import('../firebase/firebase');
-      
-      const querySnapshot = await getDocs(collection(db, 'listings'));
-      console.log('Direct query found', querySnapshot.size, 'total documents');
-      querySnapshot.forEach((doc) => {
-        console.log('Document:', doc.id, doc.data());
-      });
-    } catch (error) {
-      console.error('Direct query error:', error);
     }
   };
 
@@ -271,20 +254,23 @@ const CatalogPage: React.FC = () => {
             >
               <ArrowLeft className="h-5 w-5 mr-2" />
               Back to Home
-            </button>            <button
-              onClick={refreshListings}
-              disabled={loading}
-              className="btn-outline flex items-center space-x-2"
-            >
-              <RefreshCw className={`h-4 w-4 ${loading ? 'animate-spin' : ''}`} />
-              <span>Refresh</span>
-            </button>
-            <button
-              onClick={testDirectQuery}
-              className="btn-outline flex items-center space-x-2 ml-2"
-            >
-              <span>Debug Query</span>
-            </button>
+            </button>            <div className="flex items-center space-x-2">
+              <button
+                onClick={refreshListings}
+                disabled={loading}
+                className="btn-outline flex items-center space-x-2"
+              >
+                <RefreshCw className={`h-4 w-4 ${loading ? 'animate-spin' : ''}`} />
+                <span>Refresh</span>
+              </button>
+              <button
+                onClick={() => navigate('/make-listing')}
+                className="btn-primary flex items-center space-x-2"
+              >
+                <Building2 className="h-4 w-4" />
+                <span>Create Listing</span>
+              </button>
+            </div>
           </div>
           <h1 className="text-3xl font-bold text-gray-900">Business Catalog</h1>
           <p className="text-gray-600 mt-2">Discover local businesses offering products and services</p>
