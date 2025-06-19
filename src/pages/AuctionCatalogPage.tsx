@@ -399,10 +399,9 @@ const AuctionCatalogPage: React.FC = () => {
                         className="flex-1 btn-outline text-center"
                       >
                         View Details
-                      </Link>
-                      {user && !isOwner && timeRemaining !== 'Ended' && (
+                      </Link>                      {user && !isOwner && timeRemaining !== 'Ended' && (
                         <Link
-                          to={`/auctions/${auction.id}/bid`}
+                          to={`/auctions/${auction.id}`}
                           className="flex-1 btn-primary text-center"
                         >
                           Place Bid

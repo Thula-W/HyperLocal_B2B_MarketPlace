@@ -477,14 +477,21 @@ export const createAuctionListing = async (auction: Omit<AuctionListing, 'id' | 
 export const getActiveAuctions = async (): Promise<AuctionListing[]> => {
   try {
     const now = new Date().toISOString();
+    
+    // Query only by status to avoid composite index requirement
     const q = query(
       collection(db, 'auctions'),
-      where('status', '==', 'active'),
-      where('endTime', '>', now),
-      orderBy('endTime', 'asc')
+      where('status', '==', 'active')
     );
     const snapshot = await getDocs(q);
-    return snapshot.docs.map(doc => ({ id: doc.id, ...doc.data() } as AuctionListing));
+    const auctions = snapshot.docs.map(doc => ({ id: doc.id, ...doc.data() } as AuctionListing));
+    
+    // Filter by endTime and sort in the frontend
+    const activeAuctions = auctions
+      .filter(auction => auction.endTime > now)
+      .sort((a, b) => new Date(a.endTime).getTime() - new Date(b.endTime).getTime());
+    
+    return activeAuctions;
   } catch (error) {
     console.error('Error fetching active auctions:', error);
     throw error;
