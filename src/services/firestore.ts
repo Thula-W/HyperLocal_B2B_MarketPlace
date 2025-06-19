@@ -452,6 +452,46 @@ export const getCompanyByUserEmail = async (userEmail: string): Promise<Company 
   }
 };
 
+// Company transactions
+export const getCompanyTransactions = async (userId: string): Promise<Inquiry[]> => {
+  try {
+    // Get all inquiries sent by this user
+    const sentQuery = query(
+      collection(db, 'inquiries'),
+      where('fromUserId', '==', userId)
+    );
+    // Get all inquiries received by this user
+    const receivedQuery = query(
+      collection(db, 'inquiries'),
+      where('toUserId', '==', userId)
+    );
+
+    const [sentSnap, receivedSnap] = await Promise.all([
+      getDocs(sentQuery),
+      getDocs(receivedQuery)
+    ]);
+
+    // Map and filter for completed purchases
+    const sent = sentSnap.docs
+      .map(doc => ({ id: doc.id, ...doc.data() } as Inquiry))
+      .filter(inq => inq.purchaseStatus === 'purchased');
+    const received = receivedSnap.docs
+      .map(doc => ({ id: doc.id, ...doc.data() } as Inquiry))
+      .filter(inq => inq.purchaseStatus === 'purchased');
+
+    // Combine and sort by purchaseDate (descending)
+    const all = [...sent, ...received].sort((a, b) =>
+      (b.purchaseDate ? new Date(b.purchaseDate).getTime() : 0) -
+      (a.purchaseDate ? new Date(a.purchaseDate).getTime() : 0)
+    );
+
+    return all;
+  } catch (error) {
+    console.error('Error fetching company transactions:', error);
+    throw error;
+  }
+};
+
 // Auction functions
 export const createAuctionListing = async (auction: Omit<AuctionListing, 'id' | 'createdAt' | 'updatedAt' | 'currentBid' | 'bids'>): Promise<string> => {
   try {

@@ -14,10 +14,12 @@ import {
   AlertCircle
 } from 'lucide-react';
 import { useAuth } from '../contexts/AuthContext';
-import { getUserListings, getUserInquiries, Listing, Inquiry, updateInquiry } from '../services/firestore';
+import { getUserListings, getUserInquiries, Listing, Inquiry, updateInquiry, getCompanyTransactions } from '../services/firestore';
 import ProfileCompletionModal from '../components/ProfileCompletionModal';
 import { InquiryChat } from '../components/InquiryChat';
 import { ImageGallery } from '../components/ImageDisplay';
+import jsPDF from "jspdf";
+import autoTable from "jspdf-autotable";
 
 const ProfilePage: React.FC = () => {
   const { user } = useAuth();
@@ -27,6 +29,7 @@ const ProfilePage: React.FC = () => {
   const [inquiries, setInquiries] = useState<{ sent: Inquiry[], received: Inquiry[] }>({ sent: [], received: [] });  const [loading, setLoading] = useState(true);
   const [showProfileModal, setShowProfileModal] = useState(false);  
   const [openChatInquiry, setOpenChatInquiry] = useState<Inquiry | null>(null);
+  const [transactions, setTransactions] = useState<Inquiry[]>([]);
 
   // Helper function to format price with dollar sign
   const formatPrice = (price: string) => {
@@ -52,9 +55,10 @@ const ProfilePage: React.FC = () => {
     console.log('Fetching profile data for user:', user.id);
     setLoading(true);
     try {
-      const [userListings, userInquiries] = await Promise.all([
+      const [userListings, userInquiries, userTransactions] = await Promise.all([
         getUserListings(user.id),
-        getUserInquiries(user.id)
+        getUserInquiries(user.id),
+        getCompanyTransactions(user.id)
       ]);
         console.log('Fetched listings:', userListings.length);
       console.log('Fetched inquiries:', userInquiries);
@@ -62,7 +66,8 @@ const ProfilePage: React.FC = () => {
       console.log('Inquiries received:', userInquiries.received);
       
       setListings(userListings);
-      setInquiries(userInquiries);      // Show profile completion modal for users without company info
+      setInquiries(userInquiries);
+      setTransactions(userTransactions);      // Show profile completion modal for users without company info
       // or when explicitly required by route
       if (!user.companyDetails && user.name) {
         setShowProfileModal(true);
@@ -183,7 +188,8 @@ const ProfilePage: React.FC = () => {
     { id: 'business', label: 'Business Profile', icon: Building },
     { id: 'listings', label: 'My Listings', icon: Package },
     { id: 'inquiries-received', label: 'Inquiries Received', icon: MessageSquare },
-    { id: 'inquiries-made', label: 'Inquiries Made', icon: Mail }
+    { id: 'inquiries-made', label: 'Inquiries Made', icon: Mail },
+    { id: 'transactions', label: 'Transactions', icon: DollarSign }
   ];
   // Accept inquiry: set status to "accepted"
   const handleAccept = async (inquiryId: string) => {
@@ -216,6 +222,31 @@ const ProfilePage: React.FC = () => {
   // Open chat: set the inquiry to open in chat modal
   const handleOpenChat = (inquiry: Inquiry) => {
     setOpenChatInquiry(inquiry);
+  };
+
+  const downloadPDF = () => {
+    const doc = new jsPDF();
+    doc.text("Company Transactions Report", 14, 16);
+    doc.setFontSize(10);
+    doc.text(`Company: ${(user?.companyDetails?.name || user?.name) ?? ''}`, 14, 24);
+    doc.text(`Generated: ${new Date().toLocaleString()}`, 14, 30);
+
+    const tableData = transactions.map((t, i) => [
+      i + 1,
+      t.purchaseDate ? new Date(t.purchaseDate).toLocaleDateString() : "",
+      t.fromUserCompany,
+      t.toUserCompany,
+      t.listingTitle,
+      t.purchaseAmount ? `$${t.purchaseAmount}` : "",
+    ]);
+
+    autoTable(doc, {
+      head: [["#", "Date", "Buyer", "Seller", "Item", "Amount"]],
+      body: tableData,
+      startY: 36,
+    });
+
+    doc.save("transactions_report.pdf");
   };
 
   return (
@@ -880,6 +911,40 @@ const ProfilePage: React.FC = () => {
                   </div>
                 )}
               </div>
+            </div>
+          )}{activeTab === 'transactions' && (
+            <div className="p-6">
+              <h2 className="text-xl font-bold mb-4">Completed Transactions</h2>
+              <button
+                onClick={downloadPDF}
+                className="mb-4 px-4 py-2 bg-blue-600 text-white rounded hover:bg-blue-700"
+              >
+                Download PDF Report
+              </button>
+              <table className="min-w-full border">
+                <thead>
+                  <tr>
+                    <th className="text-left px-2 py-1">#</th>
+                    <th className="text-left px-2 py-1">Date</th>
+                    <th className="text-left px-2 py-1">Buyer</th>
+                    <th className="text-left px-2 py-1">Seller</th>
+                    <th className="text-left px-2 py-1">Item</th>
+                    <th className="text-left px-2 py-1">Amount</th>
+                  </tr>
+                </thead>
+                <tbody>
+                  {transactions.map((t, i) => (
+                    <tr key={t.id}>
+                      <td className="px-2 py-1">{i + 1}</td>
+                      <td className="px-2 py-1">{t.purchaseDate ? new Date(t.purchaseDate).toLocaleDateString() : ""}</td>
+                      <td className="px-2 py-1">{t.fromUserCompany}</td>
+                      <td className="px-2 py-1">{t.toUserCompany}</td>
+                      <td className="px-2 py-1">{t.listingTitle}</td>
+                      <td className="px-2 py-1">{t.purchaseAmount ? `$${t.purchaseAmount}` : ""}</td>
+                    </tr>
+                  ))}
+                </tbody>
+              </table>
             </div>
           )}
         </div>        {/* Profile Completion Modal */}        {showProfileModal && (
