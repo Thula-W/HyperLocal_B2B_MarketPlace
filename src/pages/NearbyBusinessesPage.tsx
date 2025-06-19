@@ -28,10 +28,14 @@ const NearbyBusinessesPage: React.FC = () => {
   const [selectedBusinessType, setSelectedBusinessType] = useState('');
   const [searchTerm, setSearchTerm] = useState('');  
   const [userLocation, setUserLocation] = useState<{ lat: number; lng: number } | null>(null);
-
   const businessTypes = [
-    'Manufacturing', 'Retail', 'Technology', 'Healthcare', 'Construction',
-    'Food & Beverage', 'Professional Services', 'Transportation', 'Education', 'Other'
+    'Sole Proprietor',
+    'Partnership', 
+    'Pvt Ltd',
+    'LLC',
+    'Public Ltd',
+    'Non-Profit',
+    'Other'
   ];
 
   const loadNearbyBusinesses = React.useCallback(async () => {
