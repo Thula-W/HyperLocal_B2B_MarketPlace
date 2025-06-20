@@ -60,20 +60,22 @@ const RegisterPage: React.FC = () => {
     if (formData.password.length < 6) {
       setError('Password must be at least 6 characters long');
       return;
-    }
-
-    // Check if company is in suggestions
+    }    // Check if company is in suggestions
     const isExisting = companySuggestions.some(c => c.name === formData.company);
-    if (!isExisting) {
-      navigate('/register-company', { state: { companyName: formData.company, userData: formData } });
-      return;
-    }
-
+    
     setLoading(true);
 
     try {
+      // Always register the user first, regardless of whether company exists or not
       await register(formData.email, formData.password, formData.name, formData.company);
-      navigate('/profile');
+      
+      // If company doesn't exist, redirect to company registration
+      if (!isExisting) {
+        navigate('/register-company', { state: { companyName: formData.company, userData: formData } });
+      } else {
+        // If company exists, go to profile
+        navigate('/profile');
+      }
     } catch (err) {
       console.error('Registration error:', err);
       const errorCode = (err as { code?: string })?.code;

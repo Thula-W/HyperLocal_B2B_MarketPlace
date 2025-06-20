@@ -65,8 +65,7 @@ export const useAuth = () => {
 
 export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children }) => {
   const [user, setUser] = useState<User | null>(null);
-  const [loading, setLoading] = useState(true);
-  // Function to get user data from Firestore
+  const [loading, setLoading] = useState(true);  // Function to get user data from Firestore
   const getUserData = async (firebaseUser: FirebaseUser): Promise<User | null> => {
     try {
       const userDoc = await getDoc(doc(db, 'users', firebaseUser.uid));
@@ -250,9 +249,7 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
       console.error('Google sign-in error:', error);
       throw error;
     }
-  };
-
-  const updateProfile = async (updates: Partial<Pick<User, 'name' | 'company'>>): Promise<void> => {
+  };  const updateProfile = async (updates: Partial<Pick<User, 'name' | 'company'>>): Promise<void> => {
     if (!user) {
       throw new Error('No user is currently signed in');
     }
@@ -264,8 +261,16 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
         updatedAt: new Date().toISOString()
       });
 
-      // Update local user state
-      setUser(prev => prev ? { ...prev, ...updates } : null);
+      // If company is being updated, refresh the full user data including company details
+      if (updates.company && auth.currentUser) {
+        const refreshedUserData = await getUserData(auth.currentUser);
+        if (refreshedUserData) {
+          setUser(refreshedUserData);
+        }
+      } else {
+        // Update local user state for non-company updates
+        setUser(prev => prev ? { ...prev, ...updates } : null);
+      }
     } catch (error) {
       console.error('Error updating profile:', error);
       throw error;

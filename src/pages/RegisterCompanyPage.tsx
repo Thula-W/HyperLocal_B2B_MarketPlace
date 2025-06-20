@@ -3,6 +3,7 @@ import { useLocation, useNavigate } from 'react-router-dom';
 import { addCompany } from '../services/firestore';
 import { getStorage, ref, uploadBytes, getDownloadURL } from 'firebase/storage';
 import { Upload, X } from 'lucide-react';
+import { useAuth } from '../contexts/AuthContext';
 
 const BUSINESS_TYPES = [
   'Sole Proprietor',
@@ -14,10 +15,17 @@ const BUSINESS_TYPES = [
   'Other'
 ];
 
-const RegisterCompanyPage: React.FC = () => {
-  const location = useLocation();
+const RegisterCompanyPage: React.FC = () => {  const location = useLocation();
   const navigate = useNavigate();
-  const { companyName, userData } = location.state || {};
+  const { updateProfile, isAuthenticated } = useAuth();
+  const { companyName } = location.state || {};
+
+  // Redirect to register if user is not authenticated
+  React.useEffect(() => {
+    if (!isAuthenticated) {
+      navigate('/register');
+    }
+  }, [isAuthenticated, navigate]);
 
   const [form, setForm] = useState({
     name: companyName || '',
@@ -75,8 +83,7 @@ const RegisterCompanyPage: React.FC = () => {
         const storage = getStorage();
         const storageRef = ref(storage, `company_logos/${Date.now()}_${form.logo.name}`);
         await uploadBytes(storageRef, form.logo);
-        logoUrl = await getDownloadURL(storageRef);
-      }
+        logoUrl = await getDownloadURL(storageRef);      }
 
       await addCompany({
         name: form.name,
@@ -88,10 +95,12 @@ const RegisterCompanyPage: React.FC = () => {
         businessType: form.businessType,
         registrationNumber: form.registrationNumber || undefined,
         operatingSince: form.operatingSince || undefined,
-        website: form.website || undefined,
-      });
+        website: form.website || undefined,      });
 
-      navigate('/register', { state: { ...userData, company: form.name } });
+      // Update the user's profile to associate the company
+      await updateProfile({ company: form.name });
+
+      navigate('/profile');
     // eslint-disable-next-line @typescript-eslint/no-unused-vars
     } catch (err) {
       setError('Failed to register company. Please try again.');
