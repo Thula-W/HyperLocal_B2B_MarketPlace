@@ -76,7 +76,7 @@ export const InquiryChat: React.FC<InquiryChatProps> = ({
       await purchaseListing(inquiry.id, purchaseAmount);
 
       // Show success message (you might want to use a toast notification here)
-      alert("Purchase completed successfully!");
+      //alert("Purchase completed successfully!");
 
       // Close chat or refresh data
       onClose();
@@ -85,6 +85,7 @@ export const InquiryChat: React.FC<InquiryChatProps> = ({
       alert("Purchase failed. Please try again.");
     } finally {
       setIsPurchasing(false);
+      window.location.reload();
     }
   };
 

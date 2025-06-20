@@ -217,12 +217,13 @@ const CatalogPage: React.FC = () => {
       setInquiryMessage('');
       setRequestedQuantity('');
       setSelectedListing(null);
-      alert('Inquiry sent successfully!');
+      //alert('Inquiry sent successfully!');
     } catch (error) {
       console.error('Error sending inquiry:', error);
       alert('Failed to send inquiry. Please try again.');
     } finally {
       setSubmittingInquiry(false);
+      window.location.reload();
     }
   };
   const resetFilters = () => {
