@@ -750,3 +750,18 @@ export const deleteAuction = async (auctionId: string): Promise<void> => {
     throw error;
   }
 };
+
+// Update user plan
+export const updateUserPlan = async (userId: string, plan: 'free' | 'premium'): Promise<void> => {
+  try {
+    const userRef = doc(db, 'users', userId);
+    await updateDoc(userRef, { 
+      plan,
+      planUpdatedAt: new Date().toISOString()
+    });
+    console.log('User plan updated successfully');
+  } catch (error) {
+    console.error('Error updating user plan:', error);
+    throw error;
+  }
+};

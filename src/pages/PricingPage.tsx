@@ -1,8 +1,39 @@
-import React from 'react';
-import { Link } from 'react-router-dom';
+import React, { useState } from 'react';
+import { Link, useNavigate } from 'react-router-dom';
 import { Check, Star, Zap } from 'lucide-react';
+import { useAuth } from '../contexts/AuthContext';
 
-const PricingPage: React.FC = () => {  const plans = [
+const PricingPage: React.FC = () => {
+  const { user, updateUserPlan, isAuthenticated } = useAuth();
+  const navigate = useNavigate();
+  const [isUpgrading, setIsUpgrading] = useState(false);
+  const [upgradeSuccess, setUpgradeSuccess] = useState(false);
+
+  const handleUpgradeToPremium = async () => {
+    if (!isAuthenticated) {
+      navigate('/signin');
+      return;
+    }
+
+    if (user?.plan === 'premium') {
+      return; // Already premium
+    }
+
+    try {
+      setIsUpgrading(true);
+      await updateUserPlan('premium');
+      setUpgradeSuccess(true);
+      
+      // Show success message for 3 seconds
+      setTimeout(() => {
+        setUpgradeSuccess(false);
+      }, 3000);
+    } catch (error) {
+      console.error('Error upgrading to premium:', error);
+      alert('Failed to upgrade plan. Please try again.');    } finally {
+      setIsUpgrading(false);
+    }
+  };const plans = [
     {
       name: 'Free',
       price: '$0',
@@ -28,7 +59,7 @@ const PricingPage: React.FC = () => {  const plans = [
     },
     {
       name: 'Premium',
-      price: '$29',
+      price: '$15',
       period: 'per month',
       description: 'For growing businesses that need more visibility',
       features: [
@@ -126,21 +157,46 @@ const PricingPage: React.FC = () => {  const plans = [
                       </li>
                     ))}
                   </ul>
-                </div>
-                <div className="mt-auto">
-                  <Link
-                    to="/signin"
-                    className={`w-full block text-center py-3 px-6 rounded-lg font-medium transition-colors ${
-                      plan.popular
-                        ? 'bg-primary-600 hover:bg-primary-700 text-white'
-                        : 'bg-gray-100 hover:bg-gray-200 text-gray-900'
-                    }`}
-                  >
-                    {plan.cta}
-                  </Link>
+                </div>                <div className="mt-auto">
+                  {plan.name === 'Premium' && plan.cta === 'Start Premium Trial' ? (
+                    <button
+                      onClick={handleUpgradeToPremium}
+                      disabled={isUpgrading || user?.plan === 'premium'}
+                      className={`w-full py-3 px-6 rounded-lg font-medium transition-colors ${
+                        user?.plan === 'premium'
+                          ? 'bg-green-100 text-green-800 cursor-not-allowed'
+                          : isUpgrading
+                          ? 'bg-gray-400 text-white cursor-not-allowed'
+                          : 'bg-primary-600 hover:bg-primary-700 text-white'
+                      }`}
+                    >
+                      {user?.plan === 'premium' 
+                        ? 'Current Plan' 
+                        : isUpgrading 
+                        ? 'Upgrading...' 
+                        : plan.cta
+                      }
+                    </button>
+                  ) : (
+                    <Link
+                      to="/signin"
+                      className={`w-full block text-center py-3 px-6 rounded-lg font-medium transition-colors ${
+                        plan.popular
+                          ? 'bg-primary-600 hover:bg-primary-700 text-white'
+                          : 'bg-gray-100 hover:bg-gray-200 text-gray-900'
+                      }`}
+                    >
+                      {plan.cta}
+                    </Link>
+                  )}
                   {plan.name === 'Premium' && (
                     <p className="text-center text-sm text-gray-500 mt-3">
                       30-day free trial
+                    </p>
+                  )}
+                  {upgradeSuccess && plan.name === 'Premium' && (
+                    <p className="text-center text-sm text-green-600 mt-2 font-medium">
+                      ✅ Successfully upgraded to Premium!
                     </p>
                   )}
                 </div>

@@ -47,6 +47,7 @@ interface AuthContextType {
     operatingSince?: string;
     website?: string;
   }) => Promise<void>;
+  updateUserPlan: (plan: 'free' | 'premium') => Promise<void>;
   logout: () => Promise<void>;
   isAuthenticated: boolean;
   loading: boolean;
@@ -310,11 +311,26 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
         }
       }
     } catch (error) {
-      console.error('Error creating/updating company:', error);
-      throw error;
+      console.error('Error creating/updating company:', error);      throw error;
     }
   };
 
+  const updateUserPlan = async (plan: 'free' | 'premium'): Promise<void> => {
+    if (!user) {
+      throw new Error('No user is currently signed in');
+    }
+
+    try {
+      const { updateUserPlan: updatePlanInFirestore } = await import('../services/firestore');
+      await updatePlanInFirestore(user.id, plan);
+
+      // Update local user state
+      setUser(prev => prev ? { ...prev, plan } : null);
+    } catch (error) {
+      console.error('Error updating user plan:', error);
+      throw error;
+    }
+  };
   const value = {
     user,
     login,
@@ -323,6 +339,7 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
     loginWithGoogle,
     updateProfile,
     createOrUpdateCompany,
+    updateUserPlan,
     isAuthenticated: !!user,
     loading
   };
